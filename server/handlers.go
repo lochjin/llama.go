@@ -303,7 +303,7 @@ func (s *Service) EmbedHandler(c *gin.Context) {
 		prompts += i
 	}
 
-	ret, err := wrapper.LlamaEmbedding(s.cfg, s.cfg.Model, prompts, "array")
+	ret, err := wrapper.LlamaEmbedding(s.cfg, s.cfg.ModelPath(), prompts, "array")
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": strings.TrimSpace(err.Error())})
 		return
@@ -344,7 +344,7 @@ func (s *Service) EmbeddingsHandler(c *gin.Context) {
 		return
 	}
 
-	ret, err := wrapper.LlamaEmbedding(s.cfg, s.cfg.Model, req.Prompt, "array")
+	ret, err := wrapper.LlamaEmbedding(s.cfg, s.cfg.ModelPath(), req.Prompt, "array")
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": strings.TrimSpace(err.Error())})
 		return

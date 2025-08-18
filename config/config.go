@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/url"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 )
@@ -20,6 +19,7 @@ const (
 	defaultNPredict = 512
 	DefaultHost     = "127.0.0.1:8081"
 	DefaultPort     = "8081"
+	DefaultModelDir = "./data/models"
 )
 
 var (
@@ -41,8 +41,16 @@ var (
 	Model = &cli.StringFlag{
 		Name:        "model",
 		Aliases:     []string{"m"},
-		Usage:       "Specify the path to the LLaMA model file",
+		Usage:       "The name of the model file located in the 'model-dir' repository path",
 		Destination: &Conf.Model,
+	}
+
+	ModelDir = &cli.StringFlag{
+		Name:        "model-dir",
+		Aliases:     []string{"md"},
+		Usage:       "Path for storing model files",
+		Value:       DefaultModelDir,
+		Destination: &Conf.ModelDir,
 	}
 
 	CtxSize = &cli.IntFlag{
@@ -167,6 +175,7 @@ var (
 	AppFlags = []cli.Flag{
 		LogLevel,
 		Model,
+		ModelDir,
 		CtxSize,
 		Prompt,
 		NGpuLayers,
@@ -186,8 +195,10 @@ var (
 )
 
 type Config struct {
-	LogLevel         string
-	Model            string
+	LogLevel string
+	Model    string
+	ModelDir string
+
 	CtxSize          int
 	Prompt           string
 	NGpuLayers       int
@@ -207,22 +218,22 @@ type Config struct {
 
 func (c *Config) Load() error {
 	log.Debug("Try to load config")
-	if len(c.Model) <= 0 {
+	if !c.HasModel() {
 		return fmt.Errorf("No config model")
 	}
 	return nil
 }
 
-func (c *Config) IsLonely() bool {
-	return len(c.Prompt) > 0 || c.Interactive
+func (c *Config) ModelPath() string {
+	return filepath.Join(c.ModelDir, c.Model)
 }
 
-func defaultNGpuLayers() int {
-	switch runtime.GOOS {
-	case "darwin":
-		return -1
-	}
-	return 0
+func (c *Config) HasModel() bool {
+	return len(c.Model) > 0
+}
+
+func (c *Config) IsLonely() bool {
+	return len(c.Prompt) > 0 || c.Interactive
 }
 
 func (c *Config) HostURL() *url.URL {
