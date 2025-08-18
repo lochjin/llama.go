@@ -51,6 +51,7 @@ var (
 		Usage:       "Path for storing model files",
 		Value:       DefaultModelDir,
 		Destination: &Conf.ModelDir,
+		EnvVars:     []string{"LLAMAGO_MODEL_DIR"},
 	}
 
 	CtxSize = &cli.IntFlag{
@@ -221,6 +222,7 @@ func (c *Config) Load() error {
 	if !c.HasModel() {
 		return fmt.Errorf("No config model")
 	}
+	log.Debug("Model info", "model path", c.ModelPath())
 	return nil
 }
 
