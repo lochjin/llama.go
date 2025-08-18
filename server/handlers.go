@@ -6,14 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Qitmeer/llama.go/model"
 	"github.com/Qitmeer/llama.go/wrapper"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gin-gonic/gin"
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/template"
-	"github.com/ollama/ollama/types/model"
+	omodel "github.com/ollama/ollama/types/model"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -64,12 +67,12 @@ func (s *Service) GenerateHandler(c *gin.Context) {
 		return
 	}
 
-	caps := []model.Capability{model.CapabilityCompletion}
+	caps := []omodel.Capability{omodel.CapabilityCompletion}
 	if req.Suffix != "" {
-		caps = append(caps, model.CapabilityInsert)
+		caps = append(caps, omodel.CapabilityInsert)
 	}
 	if req.Think != nil && *req.Think {
-		caps = append(caps, model.CapabilityThinking)
+		caps = append(caps, omodel.CapabilityThinking)
 		// TODO(drifkin): consider adding a warning if it's false and the model
 		// doesn't support thinking. It's not strictly required, but it can be a
 		// hint that the user is on an older qwen3/r1 model that doesn't have an
@@ -195,12 +198,12 @@ func (s *Service) ChatHandler(c *gin.Context) {
 		return
 	}
 
-	caps := []model.Capability{model.CapabilityCompletion}
+	caps := []omodel.Capability{omodel.CapabilityCompletion}
 	if len(req.Tools) > 0 {
-		caps = append(caps, model.CapabilityTools)
+		caps = append(caps, omodel.CapabilityTools)
 	}
 	if req.Think != nil && *req.Think {
-		caps = append(caps, model.CapabilityThinking)
+		caps = append(caps, omodel.CapabilityThinking)
 	}
 
 	checkpointLoaded := time.Now()
@@ -303,7 +306,7 @@ func (s *Service) EmbedHandler(c *gin.Context) {
 		prompts += i
 	}
 
-	ret, err := wrapper.LlamaEmbedding(s.cfg, s.cfg.Model, prompts, "array")
+	ret, err := wrapper.LlamaEmbedding(s.cfg, s.cfg.ModelPath(), prompts, "array")
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": strings.TrimSpace(err.Error())})
 		return
@@ -344,7 +347,7 @@ func (s *Service) EmbeddingsHandler(c *gin.Context) {
 		return
 	}
 
-	ret, err := wrapper.LlamaEmbedding(s.cfg, s.cfg.Model, req.Prompt, "array")
+	ret, err := wrapper.LlamaEmbedding(s.cfg, s.cfg.ModelPath(), req.Prompt, "array")
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": strings.TrimSpace(err.Error())})
 		return
@@ -363,6 +366,36 @@ func (s *Service) EmbeddingsHandler(c *gin.Context) {
 
 func (s *Service) ListHandler(c *gin.Context) {
 	models := []api.ListModelResponse{}
+
+	entries, err := os.ReadDir(s.cfg.ModelDir)
+	if err != nil {
+		log.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if filepath.Ext(entry.Name()) != model.EXT {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			log.Error(err.Error())
+			continue
+		}
+		models = append(models, api.ListModelResponse{
+			Model:      entry.Name(),
+			Name:       entry.Name(),
+			Size:       info.Size(),
+			ModifiedAt: info.ModTime(),
+			Details: api.ModelDetails{
+				Format: model.EXT[1:],
+			},
+		})
+	}
 
 	slices.SortStableFunc(models, func(i, j api.ListModelResponse) int {
 		// most recently modified first
@@ -391,5 +424,38 @@ func (s *Service) ShowHandler(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "model is required"})
 		return
 	}
-	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "No support"})
+
+	entries, err := os.ReadDir(s.cfg.ModelDir)
+	if err != nil {
+		log.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if filepath.Ext(entry.Name()) != model.EXT {
+			continue
+		}
+		if entry.Name() != req.Model {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			log.Error(err.Error())
+			continue
+		}
+		resp := &api.ShowResponse{
+			Modelfile: info.Name(),
+			Details: api.ModelDetails{
+				Format: model.EXT[1:],
+			},
+			ModifiedAt: info.ModTime(),
+		}
+		c.JSON(http.StatusOK, resp)
+		return
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
 }

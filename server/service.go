@@ -111,7 +111,13 @@ func (s *Service) GenerateRoutes() error {
 	r.HEAD("/api/version", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"version": version.String()}) })
 	r.GET("/api/version", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"version": version.String()}) })
 
-	// Inference
+	r.HEAD("/api/tags", s.ListHandler)
+	r.GET("/api/tags", s.ListHandler)
+	r.HEAD("/api/models", s.ListHandler)
+	r.GET("/api/models", s.ListHandler)
+
+	r.POST("/api/show", s.ShowHandler)
+
 	r.GET("/api/ps", s.PsHandler)
 	r.POST("/api/generate", s.GenerateHandler)
 	r.POST("/api/chat", s.ChatHandler)

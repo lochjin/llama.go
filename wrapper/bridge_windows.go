@@ -26,14 +26,14 @@ func LlamaInteractive(cfg *config.Config) error {
 	if !cfg.Interactive {
 		return fmt.Errorf("Not config interactive")
 	}
-	if len(cfg.Model) <= 0 {
+	if !cfg.HasModel() {
 		return fmt.Errorf("No model")
 	}
 	ip := C.CString(cfg.Prompt)
 	defer C.free(unsafe.Pointer(ip))
 
 	cfgArgs := fmt.Sprintf("llama -i --model %s --ctx-size %d --n-gpu-layers %d --n-predict %d --seed %d",
-		cfg.Model, cfg.CtxSize, cfg.NGpuLayers, cfg.NPredict, cfg.Seed)
+		cfg.ModelPath(), cfg.CtxSize, cfg.NGpuLayers, cfg.NPredict, cfg.Seed)
 	ca := C.CString(cfgArgs)
 	defer C.free(unsafe.Pointer(ca))
 
@@ -93,11 +93,11 @@ func LlamaChat(msgs []api.Message) (string, error) {
 }
 
 func LlamaStart(cfg *config.Config) error {
-	if len(cfg.Model) <= 0 {
+	if !cfg.HasModel() {
 		return fmt.Errorf("No model")
 	}
 	cfgArgs := fmt.Sprintf("llama -i --model %s --ctx-size %d --n-gpu-layers %d --n-predict %d --seed %d",
-		cfg.Model, cfg.CtxSize, cfg.NGpuLayers, cfg.NPredict, cfg.Seed)
+		cfg.ModelPath(), cfg.CtxSize, cfg.NGpuLayers, cfg.NPredict, cfg.Seed)
 	ca := C.CString(cfgArgs)
 	defer C.free(unsafe.Pointer(ca))
 
