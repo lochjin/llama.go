@@ -6,14 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Qitmeer/llama.go/model"
 	"github.com/Qitmeer/llama.go/wrapper"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gin-gonic/gin"
 	"github.com/ollama/ollama/api"
 	"github.com/ollama/ollama/template"
-	"github.com/ollama/ollama/types/model"
+	omodel "github.com/ollama/ollama/types/model"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -64,12 +67,12 @@ func (s *Service) GenerateHandler(c *gin.Context) {
 		return
 	}
 
-	caps := []model.Capability{model.CapabilityCompletion}
+	caps := []omodel.Capability{omodel.CapabilityCompletion}
 	if req.Suffix != "" {
-		caps = append(caps, model.CapabilityInsert)
+		caps = append(caps, omodel.CapabilityInsert)
 	}
 	if req.Think != nil && *req.Think {
-		caps = append(caps, model.CapabilityThinking)
+		caps = append(caps, omodel.CapabilityThinking)
 		// TODO(drifkin): consider adding a warning if it's false and the model
 		// doesn't support thinking. It's not strictly required, but it can be a
 		// hint that the user is on an older qwen3/r1 model that doesn't have an
@@ -195,12 +198,12 @@ func (s *Service) ChatHandler(c *gin.Context) {
 		return
 	}
 
-	caps := []model.Capability{model.CapabilityCompletion}
+	caps := []omodel.Capability{omodel.CapabilityCompletion}
 	if len(req.Tools) > 0 {
-		caps = append(caps, model.CapabilityTools)
+		caps = append(caps, omodel.CapabilityTools)
 	}
 	if req.Think != nil && *req.Think {
-		caps = append(caps, model.CapabilityThinking)
+		caps = append(caps, omodel.CapabilityThinking)
 	}
 
 	checkpointLoaded := time.Now()
@@ -363,6 +366,36 @@ func (s *Service) EmbeddingsHandler(c *gin.Context) {
 
 func (s *Service) ListHandler(c *gin.Context) {
 	models := []api.ListModelResponse{}
+
+	entries, err := os.ReadDir(s.cfg.ModelDir)
+	if err != nil {
+		log.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if filepath.Ext(entry.Name()) != model.EXT {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			log.Error(err.Error())
+			continue
+		}
+		models = append(models, api.ListModelResponse{
+			Model:      entry.Name(),
+			Name:       entry.Name(),
+			Size:       info.Size(),
+			ModifiedAt: info.ModTime(),
+			Details: api.ModelDetails{
+				Format: model.EXT[1:],
+			},
+		})
+	}
 
 	slices.SortStableFunc(models, func(i, j api.ListModelResponse) int {
 		// most recently modified first
