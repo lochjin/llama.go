@@ -116,6 +116,8 @@ func (s *Service) GenerateRoutes() error {
 	r.HEAD("/api/models", s.ListHandler)
 	r.GET("/api/models", s.ListHandler)
 
+	r.POST("/api/show", s.ShowHandler)
+
 	r.GET("/api/ps", s.PsHandler)
 	r.POST("/api/generate", s.GenerateHandler)
 	r.POST("/api/chat", s.ChatHandler)

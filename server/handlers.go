@@ -424,5 +424,38 @@ func (s *Service) ShowHandler(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "model is required"})
 		return
 	}
-	c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "No support"})
+
+	entries, err := os.ReadDir(s.cfg.ModelDir)
+	if err != nil {
+		log.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if filepath.Ext(entry.Name()) != model.EXT {
+			continue
+		}
+		if entry.Name() != req.Model {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			log.Error(err.Error())
+			continue
+		}
+		resp := &api.ShowResponse{
+			Modelfile: info.Name(),
+			Details: api.ModelDetails{
+				Format: model.EXT[1:],
+			},
+			ModifiedAt: info.ModTime(),
+		}
+		c.JSON(http.StatusOK, resp)
+		return
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
 }
