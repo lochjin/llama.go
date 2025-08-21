@@ -1,4 +1,4 @@
-package server
+package routes
 
 import (
 	"bytes"
@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	qapi "github.com/Qitmeer/llama.go/api"
 	"github.com/Qitmeer/llama.go/model"
+	"github.com/Qitmeer/llama.go/version"
 	"github.com/Qitmeer/llama.go/wrapper"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gin-gonic/gin"
@@ -22,7 +24,7 @@ import (
 	"time"
 )
 
-func (s *Service) PsHandler(c *gin.Context) {
+func (s *API) PsHandler(c *gin.Context) {
 	models := []api.ProcessModelResponse{}
 	slices.SortStableFunc(models, func(i, j api.ProcessModelResponse) int {
 		// longest duration remaining listed first
@@ -32,7 +34,7 @@ func (s *Service) PsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, api.ProcessResponse{Models: models})
 }
 
-func (s *Service) GenerateHandler(c *gin.Context) {
+func (s *API) GenerateHandler(c *gin.Context) {
 	checkpointStart := time.Now()
 	var req api.GenerateRequest
 	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
@@ -174,7 +176,7 @@ func (s *Service) GenerateHandler(c *gin.Context) {
 	})
 }
 
-func (s *Service) ChatHandler(c *gin.Context) {
+func (s *API) ChatHandler(c *gin.Context) {
 	checkpointStart := time.Now()
 
 	var req api.ChatRequest
@@ -256,7 +258,7 @@ func (s *Service) ChatHandler(c *gin.Context) {
 	})
 }
 
-func (s *Service) EmbedHandler(c *gin.Context) {
+func (s *API) EmbedHandler(c *gin.Context) {
 	checkpointStart := time.Now()
 	var req api.EmbedRequest
 	err := c.ShouldBindJSON(&req)
@@ -331,7 +333,7 @@ func (s *Service) EmbedHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func (s *Service) EmbeddingsHandler(c *gin.Context) {
+func (s *API) EmbeddingsHandler(c *gin.Context) {
 	var req api.EmbeddingRequest
 	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
@@ -364,7 +366,7 @@ func (s *Service) EmbeddingsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func (s *Service) ListHandler(c *gin.Context) {
+func (s *API) ListHandler(c *gin.Context) {
 	models := []api.ListModelResponse{}
 
 	entries, err := os.ReadDir(s.cfg.ModelDir)
@@ -404,7 +406,7 @@ func (s *Service) ListHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, api.ListResponse{Models: models})
 }
 
-func (s *Service) ShowHandler(c *gin.Context) {
+func (s *API) ShowHandler(c *gin.Context) {
 	var req api.ShowRequest
 	err := c.ShouldBindJSON(&req)
 	switch {
@@ -458,4 +460,17 @@ func (s *Service) ShowHandler(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+}
+
+func (s *API) PropsHandler(c *gin.Context) {
+	prep := qapi.PropsResponse{
+		ModelPath: s.cfg.ModelPath(),
+		BuildInfo: version.String(),
+		NCtx:      int64(s.cfg.CtxSize),
+		Modalities: qapi.Modalities{
+			Vision: false,
+			Audio:  false,
+		},
+	}
+	c.JSON(http.StatusOK, prep)
 }

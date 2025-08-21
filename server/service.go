@@ -4,12 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Qitmeer/llama.go/config"
+	"github.com/Qitmeer/llama.go/server/middleware"
+	"github.com/Qitmeer/llama.go/server/routes"
 	"github.com/Qitmeer/llama.go/version"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/ollama/ollama/openai"
-	"github.com/ollama/ollama/template"
 	"github.com/urfave/cli/v2"
 	"net"
 	"net/http"
@@ -17,29 +16,25 @@ import (
 )
 
 type Service struct {
-	ctx  *cli.Context
-	cfg  *config.Config
-	tmpl *template.Template
+	ctx *cli.Context
+	cfg *config.Config
 
 	addr net.Addr
 	srvr *http.Server
 
 	wg sync.WaitGroup
+
+	api *routes.API
 }
 
 func New(ctx *cli.Context, cfg *config.Config) *Service {
 	log.Info("New Server ...")
-	ser := Service{ctx: ctx, cfg: cfg}
+	ser := Service{ctx: ctx, cfg: cfg, api: routes.New(cfg)}
 	return &ser
 }
 
 func (s *Service) Start() error {
 	log.Info("Start Server...")
-	tmpl, err := template.Parse("{{- range .Messages }}<|im_start|>{{ .Role }}\n{{ .Content }}<|im_end|>\n{{ end }}<|im_start|>assistant")
-	if err != nil {
-		return err
-	}
-	s.tmpl = tmpl
 
 	ln, err := net.Listen("tcp", s.cfg.HostURL().Host)
 	if err != nil {
@@ -70,66 +65,15 @@ func (s *Service) Start() error {
 }
 
 func (s *Service) GenerateRoutes() error {
-	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowWildcard = true
-	corsConfig.AllowBrowserExtensions = true
-	corsConfig.AllowHeaders = []string{
-		"Authorization",
-		"Content-Type",
-		"User-Agent",
-		"Accept",
-		"X-Requested-With",
-
-		// OpenAI compatibility headers
-		"OpenAI-Beta",
-		"x-stainless-arch",
-		"x-stainless-async",
-		"x-stainless-custom-poll-interval",
-		"x-stainless-helper-method",
-		"x-stainless-lang",
-		"x-stainless-os",
-		"x-stainless-package-version",
-		"x-stainless-poll-helper",
-		"x-stainless-retry-count",
-		"x-stainless-runtime",
-		"x-stainless-runtime-version",
-		"x-stainless-timeout",
-	}
-	corsConfig.AllowOrigins = s.cfg.AllowedOrigins()
-
-	gin.SetMode(gin.DebugMode)
 	r := gin.Default()
+
+	r.Use(middleware.Security())
+	r.Use(middleware.CORS(s.cfg.AllowedOrigins()))
+	r.Use(middleware.AllowedHosts(s.addr))
+
 	r.HandleMethodNotAllowed = true
-	r.Use(
-		cors.New(corsConfig),
-		allowedHostsMiddleware(s.addr),
-	)
 
-	// General
-	r.HEAD("/", func(c *gin.Context) { c.String(http.StatusOK, "Llamago is running") })
-	r.GET("/", func(c *gin.Context) { c.String(http.StatusOK, "Llamago is running") })
-	r.HEAD("/api/version", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"version": version.String()}) })
-	r.GET("/api/version", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"version": version.String()}) })
-
-	r.HEAD("/api/tags", s.ListHandler)
-	r.GET("/api/tags", s.ListHandler)
-	r.HEAD("/api/models", s.ListHandler)
-	r.GET("/api/models", s.ListHandler)
-
-	r.POST("/api/show", s.ShowHandler)
-
-	r.GET("/api/ps", s.PsHandler)
-	r.POST("/api/generate", s.GenerateHandler)
-	r.POST("/api/chat", s.ChatHandler)
-	r.POST("/api/embed", s.EmbedHandler)
-	r.POST("/api/embeddings", s.EmbeddingsHandler)
-
-	// Inference (OpenAI compatibility)
-	r.POST("/v1/chat/completions", openai.ChatMiddleware(), s.ChatHandler)
-	r.POST("/v1/completions", openai.CompletionsMiddleware(), s.GenerateHandler)
-	r.POST("/v1/embeddings", openai.EmbeddingsMiddleware(), s.EmbedHandler)
-	r.GET("/v1/models", openai.ListMiddleware(), s.ListHandler)
-	r.GET("/v1/models/:model", openai.RetrieveMiddleware(), s.ShowHandler)
+	s.api.Setup(r)
 
 	http.Handle("/", r)
 	return nil

@@ -1,4 +1,4 @@
-package server
+package middleware
 
 import (
 	"github.com/gin-gonic/gin"
@@ -9,12 +9,7 @@ import (
 	"strings"
 )
 
-type ImageData struct {
-	Data []byte `json:"data"`
-	ID   int    `json:"id"`
-}
-
-func allowedHostsMiddleware(addr net.Addr) gin.HandlerFunc {
+func AllowedHosts(addr net.Addr) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if addr == nil {
 			c.Next()
