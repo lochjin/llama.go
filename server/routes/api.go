@@ -35,8 +35,6 @@ func (s *API) Start() error {
 
 func (s *API) Setup(r *gin.Engine) {
 	// General
-	r.HEAD("/", func(c *gin.Context) { c.String(http.StatusOK, "Llamago is running") })
-	r.GET("/", func(c *gin.Context) { c.String(http.StatusOK, "Llamago is running") })
 	r.HEAD("/api/version", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"version": version.String()}) })
 	r.GET("/api/version", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"version": version.String()}) })
 
@@ -61,4 +59,9 @@ func (s *API) Setup(r *gin.Engine) {
 	r.GET("/v1/models", openai.ListMiddleware(), s.ListHandler)
 	r.GET("/v1/models/:model", openai.RetrieveMiddleware(), s.ShowHandler)
 
+	// webui index
+	r.GET("/", s.IndexHandler)
+	r.HEAD("/", s.IndexHandler)
+	r.GET("/index.html", s.IndexHandler)
+	r.HEAD("/index.html", s.IndexHandler)
 }
