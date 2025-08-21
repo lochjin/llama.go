@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	qapi "github.com/Qitmeer/llama.go/api"
 	"github.com/Qitmeer/llama.go/model"
+	"github.com/Qitmeer/llama.go/version"
 	"github.com/Qitmeer/llama.go/wrapper"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gin-gonic/gin"
@@ -458,4 +460,17 @@ func (s *Service) ShowHandler(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+}
+
+func (s *Service) PropsHandler(c *gin.Context) {
+	prep := qapi.PropsResponse{
+		ModelPath: s.cfg.ModelPath(),
+		BuildInfo: version.String(),
+		NCtx:      int64(s.cfg.CtxSize),
+		Modalities: qapi.Modalities{
+			Vision: false,
+			Audio:  false,
+		},
+	}
+	c.JSON(http.StatusOK, prep)
 }
