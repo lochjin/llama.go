@@ -13,6 +13,7 @@ func commands() []*cli.Command {
 	cmds := []*cli.Command{}
 	cmds = append(cmds, downloadCmd())
 	cmds = append(cmds, embeddingCmd())
+	cmds = append(cmds, whisperCmd())
 	return cmds
 }
 
@@ -72,4 +73,47 @@ func saveOutputToFile(outFilePath string, content string) error {
 	}()
 	_, err = outFile.WriteString(content)
 	return err
+}
+
+func whisperCmd() *cli.Command {
+	return &cli.Command{
+		Name:        "whisper",
+		Aliases:     []string{"w"},
+		Category:    "whisper",
+		Usage:       "Generate text by whisper model",
+		Description: "Generate text by whisper model",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "input",
+				Aliases: []string{"i"},
+				Usage:   "Input file path for generate.",
+			},
+		},
+		Action: func(ctx *cli.Context) error {
+			cfg := config.Conf
+			err := initLog(cfg)
+			if err != nil {
+				return err
+			}
+			log.Info("Start whisper")
+			err = cfg.Load()
+			if err != nil {
+				return err
+			}
+			if !ctx.IsSet("input") {
+				return fmt.Errorf("No input file")
+			}
+			ret, err := wrapper.WhisperGenerate(cfg, ctx.Value("input").(string))
+			if err != nil {
+				return err
+			}
+			if len(cfg.OutputFile) > 0 {
+				return saveOutputToFile(cfg.OutputFile, ret)
+			} else {
+				fmt.Println("result:")
+				fmt.Println(ret)
+			}
+			return nil
+		},
+	}
 }

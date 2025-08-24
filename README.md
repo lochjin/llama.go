@@ -58,4 +58,12 @@ Or enable interactive mode to run:
 ~ curl -s -k -X POST -H 'Content-Type: application/json' --data '{"input":["天空","蓝色"]}' http://127.0.0.1:8081/api/embed
 ~ curl -s -k -X POST -H 'Content-Type: application/json' --data '{"prompt":"天空为什么是蓝的"}' http://127.0.0.1:8081/api/embeddings
 ```
+### Whisper
+* Firstly, you need to download the model from this address `https://huggingface.co/ggerganov/whisper.cpp` and then place it in `LLAMAGO_MODEL_DIR` or `model-dir`
+
+```bash
+~ ./llama --model=ggml-base.en.bin whisper --input="./your-voice.wav"
+```
+
+
 

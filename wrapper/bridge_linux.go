@@ -7,7 +7,7 @@ package wrapper
 #cgo CXXFLAGS: -std=c++17
 #cgo CFLAGS: -I${SRCDIR}/../core/include
 #cgo CXXFLAGS: -I${SRCDIR}/../core/include
-#cgo LDFLAGS: -L${SRCDIR}/../build/lib -lllama_core -lcommon -lllama -lggml -lggml-base -lggml-cpu -lstdc++ -lm
+#cgo LDFLAGS: -L${SRCDIR}/../build/lib -lllama_core -lcommon -lllama -lwhisper -lwhisper-common -lggml -lggml-base -lggml-cpu -lstdc++ -lm
 #include <stdlib.h>
 #include "core.h"
 */
@@ -145,6 +145,28 @@ func LlamaEmbedding(cfg *config.Config, model string, prompts string, embdOutput
 	ret := C.llama_embedding(ca, ip)
 	if ret == nil {
 		return "", fmt.Errorf("llama_embedding run error")
+	}
+	content := C.GoString(ret)
+	C.free(unsafe.Pointer(ret))
+	return content, nil
+}
+
+func WhisperGenerate(cfg *config.Config, input string) (string, error) {
+	if !cfg.HasModel() {
+		return "", fmt.Errorf("No model")
+	}
+	if len(input) <= 0 {
+		return "", fmt.Errorf("No input")
+	}
+	model := C.CString(cfg.ModelPath())
+	defer C.free(unsafe.Pointer(model))
+
+	ip := C.CString(input)
+	defer C.free(unsafe.Pointer(ip))
+
+	ret := C.whisper_gen(model, ip)
+	if ret == nil {
+		return "", fmt.Errorf("Whisper run error")
 	}
 	content := C.GoString(ret)
 	C.free(unsafe.Pointer(ret))

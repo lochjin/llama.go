@@ -19,20 +19,27 @@ set(GGML_STATIC ON)
 set(BUILD_SHARED_LIBS OFF)
 set(LLAMA_BUILD_COMMON ON)
 set(LLAMA_CURL OFF)
-add_subdirectory(llama.cpp)
+add_subdirectory(llama.cpp ${CMAKE_BINARY_DIR}/llama)
+
+# whisper.cpp
+set(WHISPER_COMMON_TARGET "whisper-common")
+set(WHISPER_BUILD_EXAMPLES ON)
+add_subdirectory(whisper.cpp ${CMAKE_BINARY_DIR}/whisper)
 
 # core
-set(SRCS src/generate.cpp src/interactive.cpp src/process.cpp src/runner.cpp src/event_processor.cpp src/embedding.cpp)
+set(SRCS src/generate.cpp src/interactive.cpp src/process.cpp src/runner.cpp src/event_processor.cpp src/embedding.cpp src/whisper-service.cpp)
 set(TARGET llama_core)
 
 include_directories(./include)
 include_directories(./llama.cpp/include)
 include_directories(./llama.cpp/common)
+include_directories(./whisper.cpp/include)
+include_directories(./whisper.cpp)
 
 link_directories(${CMAKE_BINARY_DIR}/lib)
 
 add_library(${TARGET} STATIC ${SRCS})
-target_link_libraries(${TARGET} PRIVATE common llama ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(${TARGET} PRIVATE common llama whisper-common whisper ${CMAKE_THREAD_LIBS_INIT} ${FFMPEG_LIBRARIES})
 
 # test
 option(BUILD_TEST "Build the testing tree." OFF)

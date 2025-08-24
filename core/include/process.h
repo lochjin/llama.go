@@ -8,6 +8,7 @@ extern "C" {
     int llama_stop();
     const char * llama_gen(const char * prompt);
     const char * llama_chat(const char **roles,const char **contents, int size);
+    const char * whisper_gen(const char * model,const char * input);
 
 #ifdef __cplusplus
 }
