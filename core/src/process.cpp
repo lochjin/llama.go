@@ -1,6 +1,7 @@
 #include "process.h"
 #include "runner.h"
 #include "log.h"
+#include "whisper-service.h"
 
 static Runner *g_runner;
 static int g_idx=0;
@@ -70,6 +71,17 @@ const char * llama_chat(const char **roles,const char **contents, int size) {
     }
 
     std::string result = g_runner->chat(msgs);
+    char* arr = new char[result.size() + 1];
+    std::copy(result.begin(), result.end(), arr);
+    arr[result.size()] = '\0';
+
+    return arr;
+}
+
+const char * whisper_gen(const char * model,const char * input) {
+    WhisperService ws;
+
+    std::string result = ws.generate(std::string(model),std::string(input));
     char* arr = new char[result.size() + 1];
     std::copy(result.begin(), result.end(), arr);
     arr[result.size()] = '\0';
