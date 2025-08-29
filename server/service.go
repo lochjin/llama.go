@@ -35,6 +35,10 @@ func New(ctx *cli.Context, cfg *config.Config) *Service {
 
 func (s *Service) Start() error {
 	log.Info("Start Server...")
+	err := s.api.Start()
+	if err != nil {
+		return err
+	}
 
 	ln, err := net.Listen("tcp", s.cfg.HostURL().Host)
 	if err != nil {
