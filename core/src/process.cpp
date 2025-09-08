@@ -1,10 +1,16 @@
 #include "process.h"
 #include "runner.h"
 #include "log.h"
-#include "whisper-service.h"
+#include "whisper_service.h"
+#include "scheduler.h"
 
 static Runner *g_runner;
 static int g_idx=0;
+
+extern "C" {
+    void PushToChan(int id, const char* val);
+    void CloseChan(int id);
+}
 
 int llama_start(const char * args,int async,const char * prompt) {
     if (g_runner != nullptr) {
@@ -87,4 +93,32 @@ const char * whisper_gen(const char * model,const char * input) {
     arr[result.size()] = '\0';
 
     return arr;
+}
+
+int scheduler_start(const char * args) {
+    if (Scheduler::instance().is_running()) {
+        return EXIT_FAILURE;
+    }
+
+    std::istringstream iss(args);
+    std::vector<std::string> v_args;
+    std::string v_a;
+    while (iss >> v_a) {
+        v_args.push_back(v_a);
+    }
+
+    if (Scheduler::instance().start(v_args)) {
+        return EXIT_SUCCESS;
+    }
+    return EXIT_FAILURE;
+}
+
+int scheduler_stop() {
+    if (!Scheduler::instance().is_running()) {
+        return EXIT_FAILURE;
+    }
+    if (Scheduler::instance().stop()) {
+        return EXIT_SUCCESS;
+    }
+    return EXIT_FAILURE;
 }
