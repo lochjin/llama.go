@@ -7,6 +7,11 @@
 static Runner *g_runner;
 static int g_idx=0;
 
+extern "C" {
+    void PushToChan(int id, const char* val);
+    void CloseChan(int id);
+}
+
 int llama_start(const char * args,int async,const char * prompt) {
     if (g_runner != nullptr) {
         LOG("Delete last runner: id=%d\n",g_runner->getID());

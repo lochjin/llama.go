@@ -9,9 +9,16 @@ import "C"
 import (
 	"fmt"
 	"github.com/ollama/ollama/api"
+	"sync"
 	"unsafe"
 
 	"github.com/Qitmeer/llama.go/config"
+)
+
+var (
+	mu         sync.Mutex
+	channels   = make(map[int]chan any)
+	nextChanID = 0
 )
 
 func LlamaInteractive(cfg *config.Config) error {
@@ -164,4 +171,26 @@ func WhisperGenerate(cfg *config.Config, input string) (string, error) {
 	content := C.GoString(ret)
 	C.free(unsafe.Pointer(ret))
 	return content, nil
+}
+
+//export PushToChan
+func PushToChan(id C.int, val *C.char) {
+	str := C.GoString(val)
+	mu.Lock()
+	ch, ok := channels[int(id)]
+	mu.Unlock()
+	if ok {
+		ch <- str
+	}
+}
+
+//export CloseChan
+func CloseChan(id C.int) {
+	mu.Lock()
+	ch, ok := channels[int(id)]
+	if ok {
+		close(ch)
+		delete(channels, int(id))
+	}
+	mu.Unlock()
 }

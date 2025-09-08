@@ -9,7 +9,5 @@ package wrapper
 #cgo CFLAGS: -I${SRCDIR}/../core/include
 #cgo CXXFLAGS: -I${SRCDIR}/../core/include
 #cgo LDFLAGS: -L${SRCDIR}/../build/lib -lllama_core -lllama -lcommon -lwhisper -lwhisper-common -lmtmd -l:ggml.a -l:ggml-base.a -l:ggml-cpu.a -lstdc++
-#include <stdlib.h>
-#include "core.h"
 */
 import "C"

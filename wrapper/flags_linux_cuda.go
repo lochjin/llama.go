@@ -9,7 +9,5 @@ package wrapper
 #cgo CXXFLAGS: -I${SRCDIR}/../core/include
 #cgo LDFLAGS: -L${SRCDIR}/../build/lib -lllama_core -lcommon -lllama -lwhisper -lwhisper-common -lmtmd -lggml -lggml-base -lggml-cpu -lggml-cuda -lstdc++ -lm
 #cgo LDFLAGS: -L/usr/local/cuda/lib64 -lcudart -lcublas -L/usr/local/cuda/lib64/stubs -lcuda
-#include <stdlib.h>
-#include "core.h"
 */
 import "C"

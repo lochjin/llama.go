@@ -10,7 +10,5 @@ package wrapper
 #cgo CXXFLAGS: -I${SRCDIR}/../core/include
 #cgo LDFLAGS: -framework Foundation -framework Metal -framework MetalKit -framework Accelerate -lstdc++
 #cgo LDFLAGS: -L${SRCDIR}/../build/lib -lllama_core -lllama -lcommon -lwhisper -lwhisper-common -lmtmd -lggml -lggml-base -lggml-cpu -lggml-blas -lggml-metal
-#include <stdlib.h>
-#include "core.h"
 */
 import "C"
