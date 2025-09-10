@@ -66,6 +66,7 @@ func (a *App) startLLama() {
 	if err != nil {
 		log.Error(err.Error())
 	}
+	log.Info("Started llama")
 }
 
 func (a *App) Stop() error {

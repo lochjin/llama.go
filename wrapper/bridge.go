@@ -8,7 +8,6 @@ import "C"
 
 import (
 	"fmt"
-	"github.com/ollama/ollama/api"
 	"sync"
 	"unsafe"
 
@@ -36,25 +35,22 @@ func LlamaInteractive(cfg *config.Config) error {
 	ca := C.CString(cfgArgs)
 	defer C.free(unsafe.Pointer(ca))
 
-	ret := C.llama_start(ca, 0, ip)
+	ret := C.llama_interactive(ca, ip)
 	if ret != 0 {
-		return fmt.Errorf("Llama start error")
-	}
-	ret = C.llama_stop()
-	if ret != 0 {
-		return fmt.Errorf("Llama stop error")
+		return fmt.Errorf("Llama interactive error")
 	}
 	return nil
 }
 
-func LlamaGenerate(prompt string) (string, error) {
-	if len(prompt) <= 0 {
-		return "", fmt.Errorf("No prompt")
+func LlamaGenerate(jsStr string) (string, error) {
+	if len(jsStr) <= 0 {
+		return "", fmt.Errorf("json string")
 	}
-	ip := C.CString(prompt)
-	defer C.free(unsafe.Pointer(ip))
+	fmt.Println(jsStr)
+	js := C.CString(jsStr)
+	defer C.free(unsafe.Pointer(js))
 
-	ret := C.llama_gen(ip)
+	ret := C.llama_gen(js)
 	if ret == nil {
 		return "", fmt.Errorf("Llama run error")
 	}
@@ -63,26 +59,14 @@ func LlamaGenerate(prompt string) (string, error) {
 	return content, nil
 }
 
-func LlamaChat(msgs []api.Message) (string, error) {
-	size := len(msgs)
-	if size <= 0 {
-		return "", fmt.Errorf("No messages for chat")
+func LlamaChat(jsStr string) (string, error) {
+	if len(jsStr) <= 0 {
+		return "", fmt.Errorf("json string")
 	}
-	roles := make([]*C.char, size)
-	contents := make([]*C.char, size)
+	js := C.CString(jsStr)
+	defer C.free(unsafe.Pointer(js))
 
-	for i, m := range msgs {
-		roles[i] = C.CString(m.Role)
-		defer C.free(unsafe.Pointer(roles[i]))
-
-		contents[i] = C.CString(m.Content)
-		defer C.free(unsafe.Pointer(contents[i]))
-	}
-
-	rolesPtr := (**C.char)(unsafe.Pointer(&roles[0]))
-	contentsPtr := (**C.char)(unsafe.Pointer(&contents[0]))
-
-	ret := C.llama_chat(rolesPtr, contentsPtr, C.int(size))
+	ret := C.llama_chat(js)
 	if ret == nil {
 		return "", fmt.Errorf("Llama run error")
 	}
@@ -95,15 +79,12 @@ func LlamaStart(cfg *config.Config) error {
 	if !cfg.HasModel() {
 		return fmt.Errorf("No model")
 	}
-	cfgArgs := fmt.Sprintf("llama -i --model %s --ctx-size %d --n-gpu-layers %d --n-predict %d --seed %d",
+	cfgArgs := fmt.Sprintf("llama --model %s --ctx-size %d --n-gpu-layers %d --n-predict %d --seed %d",
 		cfg.ModelPath(), cfg.CtxSize, cfg.NGpuLayers, cfg.NPredict, cfg.Seed)
 	ca := C.CString(cfgArgs)
 	defer C.free(unsafe.Pointer(ca))
 
-	ip := C.CString(cfg.Prompt)
-	defer C.free(unsafe.Pointer(ip))
-
-	ret := C.llama_start(ca, 1, ip)
+	ret := C.llama_start(ca)
 	if ret != 0 {
 		return fmt.Errorf("Llama start error")
 	}

@@ -26,6 +26,10 @@ bool Scheduler::start(const std::vector<std::string>& args) {
     if (!common_params_parse(argc, v_argv.data(), params, LLAMA_EXAMPLE_SERVER)) {
         return false;
     }
+    if (params.model_alias.empty() && !params.model.path.empty()) {
+        std::filesystem::path fp(params.model.path);
+        params.model_alias=fp.stem();
+    }
 
     common_init();
     llama_backend_init();
@@ -35,9 +39,6 @@ bool Scheduler::start(const std::vector<std::string>& args) {
     LOG_INF("\n");
     LOG_INF("%s\n", common_params_get_system_info(params).c_str());
     LOG_INF("\n");
-
-
-    std::unique_ptr<httplib::Server> svr;
 
     // Necessary similarity of prompt for slot selection
     ctx_server.slot_prompt_similarity = params.slot_prompt_similarity;
@@ -77,7 +78,10 @@ bool Scheduler::start(const std::vector<std::string>& args) {
     });
     running= true;
     // this call blocks the main thread until queue_tasks.terminate() is called
-    ctx_server.queue_tasks.start_loop();
+    tasks_thread = std::thread([&](){
+        ctx_server.queue_tasks.start_loop();
+    });
+
     return true;
 }
 
@@ -87,6 +91,9 @@ bool Scheduler::stop() {
         return false;
     }
     running= false;
+    if (tasks_thread.joinable()) {
+        tasks_thread.join();
+    }
     cleanup();
     return true;
 }
@@ -95,14 +102,6 @@ void Scheduler::cleanup() {
     // this will unblock start_loop()
     ctx_server.queue_tasks.terminate();
     llama_backend_free();
-}
-
-const std::string Scheduler::generate(const std::string& prompt) {
-    return "";
-}
-
-const std::string Scheduler::chat(const std::vector<Message>& mgs) {
-    return "";
 }
 
 bool Scheduler::is_running() {
@@ -224,6 +223,7 @@ void Scheduler::handle_completions_impl(
     }
 
     bool stream = json_value(data, "stream", false);
+    stream= false;
 
     if (!stream) {
         ctx_server.receive_multi_results(task_ids, [&](std::vector<server_task_result_ptr> & results) {
@@ -427,10 +427,10 @@ void Scheduler::handle_embeddings_oai(const Request & req, Response & res) {
 void Scheduler::res_error(Response & res, const json & error_data) {
     json final_response {{"error", error_data}};
     res.content=safe_json_to_str(final_response);
-    res.success= true;
+    res.success= false;
 };
 
 void Scheduler::res_ok(Response & res, const json & data) {
     res.content=safe_json_to_str(data);
-    res.success= false;
+    res.success= true;
 };

@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gin-gonic/gin"
 	"github.com/ollama/ollama/api"
-	"github.com/ollama/ollama/template"
 	omodel "github.com/ollama/ollama/types/model"
 	"io"
 	"net/http"
@@ -35,7 +34,15 @@ func (s *API) PsHandler(c *gin.Context) {
 }
 
 func (s *API) GenerateHandler(c *gin.Context) {
-	checkpointStart := time.Now()
+	bodyBytes, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	bodyStr := string(bodyBytes)
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
 	var req api.GenerateRequest
 	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
@@ -81,8 +88,6 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		// updated template supporting thinking
 	}
 
-	checkpointLoaded := time.Now()
-
 	// load the model
 	if req.Prompt == "" {
 		c.JSON(http.StatusOK, api.GenerateResponse{
@@ -94,90 +99,29 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		return
 	}
 
-	images := make([]ImageData, len(req.Images))
-	for i := range req.Images {
-		images[i] = ImageData{ID: i, Data: req.Images[i]}
-	}
-
-	prompt := req.Prompt
-	if !req.Raw {
-		tmpl := s.tmpl
-		if req.Template != "" {
-			tm, err := template.Parse(req.Template)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-			}
-			tmpl = tm
-		}
-
-		var values template.Values
-		if req.Suffix != "" {
-			values.Prompt = prompt
-			values.Suffix = req.Suffix
-		} else {
-			var msgs []api.Message
-			if req.System != "" {
-				msgs = append(msgs, api.Message{Role: "system", Content: req.System})
-			}
-
-			for _, i := range images {
-				imgPrompt := ""
-				msgs = append(msgs, api.Message{Role: "user", Content: fmt.Sprintf("[img-%d]"+imgPrompt, i.ID)})
-			}
-
-			values.Messages = append(msgs, api.Message{Role: "user", Content: req.Prompt})
-		}
-
-		values.Think = req.Think != nil && *req.Think
-		values.IsThinkSet = req.Think != nil
-
-		var b bytes.Buffer
-		if err := tmpl.Execute(&b, values); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		prompt = b.String()
-	}
-	content, err := wrapper.LlamaGenerate(prompt)
+	content, err := wrapper.LlamaGenerate(bodyStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	res := api.GenerateResponse{
-		Model:     req.Model,
-		CreatedAt: time.Now().UTC(),
-		Response:  content,
-		Done:      true,
-	}
-	res.TotalDuration = time.Since(checkpointStart)
-	res.LoadDuration = checkpointLoaded.Sub(checkpointStart)
-	if req.Stream == nil || !*req.Stream {
-		c.JSON(http.StatusOK, res)
+	var ret map[string]interface{}
+	if err := json.Unmarshal([]byte(content), &ret); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid json"})
 		return
 	}
-
-	c.Header("Content-Type", "application/x-ndjson")
-	c.Stream(func(w io.Writer) bool {
-		bts, err := json.Marshal(res)
-		if err != nil {
-			log.Info(fmt.Sprintf("streamResponse: json.Marshal failed with %s", err))
-			return false
-		}
-
-		// Delineate chunks with new-line delimiter
-		bts = append(bts, '\n')
-		if _, err := w.Write(bts); err != nil {
-			log.Info(fmt.Sprintf("streamResponse: w.Write failed with %s", err))
-			return false
-		}
-		return true
-	})
+	c.JSON(http.StatusOK, ret)
 }
 
 func (s *API) ChatHandler(c *gin.Context) {
 	checkpointStart := time.Now()
+	bodyBytes, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	bodyStr := string(bodyBytes)
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	var req api.ChatRequest
 	if err := c.ShouldBindJSON(&req); errors.Is(err, io.EOF) {
@@ -221,7 +165,7 @@ func (s *API) ChatHandler(c *gin.Context) {
 		return
 	}
 
-	content, err := wrapper.LlamaChat(req.Messages)
+	content, err := wrapper.LlamaChat(bodyStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -22,7 +22,7 @@ class Scheduler : public patterns::Singleton<Scheduler> {
 private:
     server_context ctx_server;
     bool running= false;
-
+    std::thread tasks_thread;
     Scheduler();
     ~Scheduler();
 
@@ -31,14 +31,13 @@ public:
     bool stop();
     void cleanup();
 
-    const std::string generate(const std::string& prompt);
-    const std::string chat(const std::vector<Message>& mgs);
     bool is_running();
 
     void handle_completions(const Request & req, Response & res);
     void handle_completions_impl(server_task_type type,json & data,const std::vector<raw_buffer> & files,const std::function<bool()> & is_connection_closed,Response & res,oaicompat_type oaicompat);
     void handle_completions_oai(const Request & req, Response & res);
     void handle_chat_completions(const Request & req, Response & res);
+
     void handle_embeddings_impl(const Request & req, Response & res, oaicompat_type oaicompat);
     void handle_embeddings(const Request & req, Response & res);
     void handle_embeddings_oai(const Request & req, Response & res);

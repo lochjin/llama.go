@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 
-int llama_interactive(const char * model_file,int n_gpu_layers,int ctx_size);
+int llama_interactive(const char * args,const char * prompt);
 
 #ifdef __cplusplus
 }
