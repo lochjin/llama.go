@@ -91,10 +91,10 @@ bool Scheduler::stop() {
         return false;
     }
     running= false;
+    cleanup();
     if (tasks_thread.joinable()) {
         tasks_thread.join();
     }
-    cleanup();
     return true;
 }
 

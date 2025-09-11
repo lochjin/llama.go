@@ -30,8 +30,15 @@ int main() {
 
     std::future<void> ll_gen = std::async(std::launch::async, [](){
         std::string js_str="{\"prompt\":\"why the sky is blue\"}";
-        std::string content = llama_gen(js_str.c_str());
+        Result result = llama_gen(js_str.c_str());
+        if (!result.ret) {
+            std::cout<<"fail"<<std::endl;
+            return;
+        }
+
+        std::string content(result.content);
         if (content.empty()) {
+            std::cout<<"fail"<<std::endl;
             return;
         }
         std::cout<<"Response:"<<content<<std::endl;
