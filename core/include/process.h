@@ -4,18 +4,21 @@
 extern "C" {
 #endif
 
-    #include <stdbool.h>
+#include <stdbool.h>
 
-    typedef struct Result {
-        bool ret;
-        const char *content;
-    } Result;
+typedef struct Result {
+    bool ret;
+    const char *content;
+} Result;
 
-    int llama_start(const char * args);
-    int llama_stop();
-    Result llama_gen(const char * js_str);
-    Result llama_chat(const char * js_str);
-    Result whisper_gen(const char * model,const char * input);
+bool llama_start(const char * args);
+bool llama_stop();
+Result llama_gen(const char * js_str);
+Result llama_chat(int id,const char * js_str);
+
+bool llama_interactive(const char * args,const char * prompt);
+
+Result whisper_gen(const char * model,const char * input);
 
 #ifdef __cplusplus
 }

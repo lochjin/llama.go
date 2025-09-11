@@ -4,16 +4,17 @@
 #include "singleton.h"
 
 struct Request {
+    int id;
     std::string body;
     std::function<bool()> is_connection_closed = []() { return false; };
 };
 
 struct Response {
-    std::string content;
+    int id;
     bool success;
-    std::function<void()> complete;
-    std::function<bool(const std::string&)> write;
-    std::function<bool()> is_writable;
+    std::function<void(int)> complete;
+    std::function<bool(int,const std::string&)> write;
+    std::function<bool(int)> is_writable;
 };
 
 class Scheduler : public patterns::Singleton<Scheduler> {

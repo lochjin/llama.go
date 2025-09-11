@@ -1,7 +1,7 @@
-#include "interactive.h"
+#include "process.h"
 #include "runner.h"
 
-int llama_interactive(const char * args,const char * prompt) {
+bool llama_interactive(const char * args,const char * prompt) {
     std::istringstream iss(args);
     std::vector<std::string> v_args;
     std::string v_a;
@@ -11,11 +11,7 @@ int llama_interactive(const char * args,const char * prompt) {
 
     Runner runner(1,v_args, false,std::string(prompt));
     if (!runner.start()) {
-        return EXIT_FAILURE;
+        return false;
     }
-    bool ret=runner.stop();
-    if (ret) {
-        return EXIT_SUCCESS;
-    }
-    return EXIT_FAILURE;
+    return runner.stop();
 }

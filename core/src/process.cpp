@@ -9,9 +9,9 @@ extern "C" {
     void CloseChan(int id);
 }
 
-int llama_start(const char * args) {
+bool llama_start(const char * args) {
     if (Scheduler::instance().is_running()) {
-        return EXIT_FAILURE;
+        return false;
     }
 
     std::istringstream iss(args);
@@ -21,45 +21,61 @@ int llama_start(const char * args) {
         v_args.push_back(v_a);
     }
 
-    if (Scheduler::instance().start(v_args)) {
-        return EXIT_SUCCESS;
+    if (!Scheduler::instance().start(v_args)) {
+        return false;
     }
-    return EXIT_FAILURE;
+    return true;
 }
 
-int llama_stop() {
+bool llama_stop() {
     if (!Scheduler::instance().is_running()) {
-        return EXIT_FAILURE;
+        return false;
     }
-    if (Scheduler::instance().stop()) {
-        return EXIT_SUCCESS;
+    if (!Scheduler::instance().stop()) {
+        return false;
     }
-    return EXIT_FAILURE;
+    return true;
 }
 
 Result llama_gen(const char * js_str) {
     if (!Scheduler::instance().is_running()) {
-        return {false,""};
+        return {false};
     }
-    Request rq{std::string(js_str)};
+    Request rq{0,std::string(js_str)};
     Response rp;
     Scheduler::instance().handle_completions_oai(rq,rp);
     if (!rp.success) {
-        return {false,""};
+        return {false};
     }
 
-    char* arr = new char[rp.content.size() + 1];
-    std::copy(rp.content.begin(), rp.content.end(), arr);
-    arr[rp.content.size()] = '\0';
-
-    return {true,arr};
+    return {true};
 }
 
-Result llama_chat(const char * js_str) {
+Result llama_chat(int id,const char * js_str) {
     if (!Scheduler::instance().is_running()) {
-        return {false,""};
+        return {false};
     }
-    return {false,""};
+
+    Request rq{id,std::string(js_str)};
+    Response rp{id};
+
+    rp.write = [](int id, const std::string& content) {
+        PushToChan(id, content.c_str());
+        return true;
+    };
+    rp.is_writable = [](int id) {
+        return true;
+    };
+    rp.complete = [](int id) {
+        CloseChan(id);
+    };
+
+    Scheduler::instance().handle_chat_completions(rq,rp);
+    if (!rp.success) {
+        return {false};
+    }
+
+    return {true};
 }
 
 Result whisper_gen(const char * model,const char * input) {
@@ -67,7 +83,7 @@ Result whisper_gen(const char * model,const char * input) {
 
     std::string result = ws.generate(std::string(model),std::string(input));
     if (result.empty()) {
-        return {false,""};
+        return {false};
     }
     char* arr = new char[result.size() + 1];
     std::copy(result.begin(), result.end(), arr);

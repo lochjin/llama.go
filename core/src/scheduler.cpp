@@ -223,7 +223,6 @@ void Scheduler::handle_completions_impl(
     }
 
     bool stream = json_value(data, "stream", false);
-    stream= false;
 
     if (!stream) {
         ctx_server.receive_multi_results(task_ids, [&](std::vector<server_task_result_ptr> & results) {
@@ -252,7 +251,7 @@ void Scheduler::handle_completions_impl(
 
             LOG_DBG("data stream, to_send: %s", str.c_str());
 
-            return res.write(str);
+            return res.write(res.id,str);
         };
         ctx_server.receive_cmpl_results_stream(task_ids, [&](server_task_result_ptr & result) -> bool {
             json res_json = result->to_json();
@@ -271,13 +270,14 @@ void Scheduler::handle_completions_impl(
             server_sent_event("error", error_data);
         }, [&res]() {
             // note: do not use req.is_connection_closed here because req is already destroyed
-            return !res.is_writable();
+            return !res.is_writable(res.id);
         });
         if (oaicompat != OAICOMPAT_TYPE_NONE) {
             static const std::string ev_done = "data: [DONE]\n\n";
-            res.write(ev_done);
+            res.write(res.id,ev_done);
         }
-        res.complete();
+        res.success= true;
+        res.complete(res.id);
         ctx_server.queue_results.remove_waiting_task_ids(task_ids);
     }
 }
@@ -426,11 +426,11 @@ void Scheduler::handle_embeddings_oai(const Request & req, Response & res) {
 
 void Scheduler::res_error(Response & res, const json & error_data) {
     json final_response {{"error", error_data}};
-    res.content=safe_json_to_str(final_response);
+    res.write(res.id,safe_json_to_str(final_response));
     res.success= false;
 };
 
 void Scheduler::res_ok(Response & res, const json & data) {
-    res.content=safe_json_to_str(data);
+    res.write(res.id,safe_json_to_str(data));
     res.success= true;
 };

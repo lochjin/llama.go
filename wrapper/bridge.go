@@ -17,7 +17,7 @@ import (
 var (
 	mu         sync.Mutex
 	channels   = make(map[int]chan any)
-	nextChanID = 0
+	nextChanID = 1
 )
 
 func LlamaInteractive(cfg *config.Config) error {
@@ -36,7 +36,7 @@ func LlamaInteractive(cfg *config.Config) error {
 	defer C.free(unsafe.Pointer(ca))
 
 	ret := C.llama_interactive(ca, ip)
-	if ret != 0 {
+	if !bool(ret) {
 		return fmt.Errorf("Llama interactive error")
 	}
 	return nil
@@ -60,21 +60,18 @@ func LlamaGenerate(jsStr string) (string, error) {
 	return content, nil
 }
 
-func LlamaChat(jsStr string) (string, error) {
+func LlamaChat(id int, jsStr string) error {
 	if len(jsStr) <= 0 {
-		return "", fmt.Errorf("json string")
+		return fmt.Errorf("json string")
 	}
 	js := C.CString(jsStr)
 	defer C.free(unsafe.Pointer(js))
 
-	ret := C.llama_chat(js)
+	ret := C.llama_chat(C.int(id), js)
 	if !bool(ret.ret) {
-		return "", fmt.Errorf("Llama run error")
+		return fmt.Errorf("Llama run error")
 	}
-
-	content := C.GoString(ret.content)
-	C.free(unsafe.Pointer(ret.content))
-	return content, nil
+	return nil
 }
 
 func LlamaStart(cfg *config.Config) error {
@@ -87,7 +84,7 @@ func LlamaStart(cfg *config.Config) error {
 	defer C.free(unsafe.Pointer(ca))
 
 	ret := C.llama_start(ca)
-	if ret != 0 {
+	if !bool(ret) {
 		return fmt.Errorf("Llama start error")
 	}
 	return nil
@@ -95,7 +92,7 @@ func LlamaStart(cfg *config.Config) error {
 
 func LlamaStop() error {
 	ret := C.llama_stop()
-	if ret != 0 {
+	if !bool(ret) {
 		return fmt.Errorf("Llama stop error")
 	}
 	return nil
@@ -126,11 +123,12 @@ func LlamaEmbedding(cfg *config.Config, model string, prompts string, embdOutput
 	defer C.free(unsafe.Pointer(ca))
 
 	ret := C.llama_embedding(ca, ip)
-	if ret == nil {
-		return "", fmt.Errorf("llama_embedding run error")
+	if !bool(ret.ret) {
+		return "", fmt.Errorf("Llama run error")
 	}
-	content := C.GoString(ret)
-	C.free(unsafe.Pointer(ret))
+
+	content := C.GoString(ret.content)
+	C.free(unsafe.Pointer(ret.content))
 	return content, nil
 }
 
@@ -155,6 +153,20 @@ func WhisperGenerate(cfg *config.Config, input string) (string, error) {
 	content := C.GoString(ret.content)
 	C.free(unsafe.Pointer(ret.content))
 	return content, nil
+}
+
+func NewChan() (int, chan any) {
+	mu.Lock()
+	defer mu.Unlock()
+	id := nextChanID
+	_, ok := channels[id]
+	if ok {
+		return 0, nil
+	}
+	ch := make(chan any)
+	channels[id] = ch
+	nextChanID++
+	return id, ch
 }
 
 //export PushToChan
