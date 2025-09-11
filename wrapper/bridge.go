@@ -51,11 +51,12 @@ func LlamaGenerate(jsStr string) (string, error) {
 	defer C.free(unsafe.Pointer(js))
 
 	ret := C.llama_gen(js)
-	if ret == nil {
+	if !bool(ret.ret) {
 		return "", fmt.Errorf("Llama run error")
 	}
-	content := C.GoString(ret)
-	C.free(unsafe.Pointer(ret))
+
+	content := C.GoString(ret.content)
+	C.free(unsafe.Pointer(ret.content))
 	return content, nil
 }
 
@@ -67,11 +68,12 @@ func LlamaChat(jsStr string) (string, error) {
 	defer C.free(unsafe.Pointer(js))
 
 	ret := C.llama_chat(js)
-	if ret == nil {
+	if !bool(ret.ret) {
 		return "", fmt.Errorf("Llama run error")
 	}
-	content := C.GoString(ret)
-	C.free(unsafe.Pointer(ret))
+
+	content := C.GoString(ret.content)
+	C.free(unsafe.Pointer(ret.content))
 	return content, nil
 }
 
@@ -146,11 +148,12 @@ func WhisperGenerate(cfg *config.Config, input string) (string, error) {
 	defer C.free(unsafe.Pointer(ip))
 
 	ret := C.whisper_gen(model, ip)
-	if ret == nil {
-		return "", fmt.Errorf("Whisper run error")
+	if !bool(ret.ret) {
+		return "", fmt.Errorf("Llama run error")
 	}
-	content := C.GoString(ret)
-	C.free(unsafe.Pointer(ret))
+
+	content := C.GoString(ret.content)
+	C.free(unsafe.Pointer(ret.content))
 	return content, nil
 }
 

@@ -4,8 +4,6 @@
 #include "whisper_service.h"
 #include "scheduler.h"
 
-#include <cstdlib>
-
 extern "C" {
     void PushToChan(int id, const char* val);
     void CloseChan(int id);
@@ -41,36 +39,39 @@ int llama_stop() {
 
 Result llama_gen(const char * js_str) {
     if (!Scheduler::instance().is_running()) {
-        return {"",};
+        return {false,""};
     }
     Request rq{std::string(js_str)};
     Response rp;
     Scheduler::instance().handle_completions_oai(rq,rp);
     if (!rp.success) {
-        return "";
+        return {false,""};
     }
 
     char* arr = new char[rp.content.size() + 1];
     std::copy(rp.content.begin(), rp.content.end(), arr);
     arr[rp.content.size()] = '\0';
 
-    return arr;
+    return {true,arr};
 }
 
-const char * llama_chat(const char * js_str) {
+Result llama_chat(const char * js_str) {
     if (!Scheduler::instance().is_running()) {
-        return "";
+        return {false,""};
     }
-    return "";
+    return {false,""};
 }
 
-const char * whisper_gen(const char * model,const char * input) {
+Result whisper_gen(const char * model,const char * input) {
     WhisperService ws;
 
     std::string result = ws.generate(std::string(model),std::string(input));
+    if (result.empty()) {
+        return {false,""};
+    }
     char* arr = new char[result.size() + 1];
     std::copy(result.begin(), result.end(), arr);
     arr[result.size()] = '\0';
 
-    return arr;
+    return {true,arr};
 }
