@@ -37,17 +37,28 @@ bool llama_stop() {
     return true;
 }
 
-Result llama_gen(const char * js_str) {
+Result llama_gen(int id,const char * js_str) {
     if (!Scheduler::instance().is_running()) {
         return {false};
     }
-    Request rq{0,std::string(js_str)};
-    Response rp;
+    Request rq{id,std::string(js_str)};
+    Response rp{id};
+
+    rp.write = [](int id, const std::string& content) {
+        PushToChan(id, content.c_str());
+        return true;
+    };
+    rp.is_writable = [](int id) {
+        return true;
+    };
+    rp.complete = [](int id) {
+        CloseChan(id);
+    };
+
     Scheduler::instance().handle_completions_oai(rq,rp);
     if (!rp.success) {
         return {false};
     }
-
     return {true};
 }
 

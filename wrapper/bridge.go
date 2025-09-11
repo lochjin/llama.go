@@ -42,22 +42,19 @@ func LlamaInteractive(cfg *config.Config) error {
 	return nil
 }
 
-func LlamaGenerate(jsStr string) (string, error) {
+func LlamaGenerate(id int, jsStr string) error {
 	if len(jsStr) <= 0 {
-		return "", fmt.Errorf("json string")
+		return fmt.Errorf("json string")
 	}
 	fmt.Println(jsStr)
 	js := C.CString(jsStr)
 	defer C.free(unsafe.Pointer(js))
 
-	ret := C.llama_gen(js)
+	ret := C.llama_gen(C.int(id), js)
 	if !bool(ret.ret) {
-		return "", fmt.Errorf("Llama run error")
+		return fmt.Errorf("Llama run error")
 	}
-
-	content := C.GoString(ret.content)
-	C.free(unsafe.Pointer(ret.content))
-	return content, nil
+	return nil
 }
 
 func LlamaChat(id int, jsStr string) error {

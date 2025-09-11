@@ -13,7 +13,7 @@ typedef struct Result {
 
 bool llama_start(const char * args);
 bool llama_stop();
-Result llama_gen(const char * js_str);
+Result llama_gen(int id,const char * js_str);
 Result llama_chat(int id,const char * js_str);
 
 bool llama_interactive(const char * args,const char * prompt);

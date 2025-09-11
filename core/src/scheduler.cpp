@@ -240,7 +240,7 @@ void Scheduler::handle_completions_impl(
         }, [&](const json & error_data) {
             res_error(res, error_data);
         }, is_connection_closed);
-
+        res.complete(res.id);
         ctx_server.queue_results.remove_waiting_task_ids(task_ids);
     } else {
         auto server_sent_event=[&](const char * event, const json & data) {

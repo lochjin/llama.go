@@ -51,17 +51,42 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		return
 	}
 
-	content, err := wrapper.LlamaGenerate(bodyStr)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	id, ch := wrapper.NewChan()
+	if id == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "task id error"})
 		return
 	}
-	var ret map[string]interface{}
-	if err := json.Unmarshal([]byte(content), &ret); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid json"})
+	go func() {
+		err = wrapper.LlamaGenerate(id, bodyStr)
+		if err != nil {
+			log.Warn(err.Error())
+			return
+		}
+	}()
+
+	if req.Stream == nil && !*req.Stream {
+		content := ""
+		for rr := range ch {
+			str, ok := rr.(string)
+			if !ok {
+				continue
+			}
+			content += str
+		}
+		if len(content) <= 0 {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "no content"})
+			return
+		}
+		var ret map[string]interface{}
+		if err := json.Unmarshal([]byte(content), &ret); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid json"})
+			return
+		}
+		c.JSON(http.StatusOK, ret)
+
 		return
 	}
-	c.JSON(http.StatusOK, ret)
+	streamHandler(c, ch)
 }
 
 func (s *API) ChatHandler(c *gin.Context) {
@@ -96,14 +121,16 @@ func (s *API) ChatHandler(c *gin.Context) {
 	}()
 
 	if req.Stream == nil && !*req.Stream {
-		val, ok := <-ch
-		if !ok {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "no chan error"})
-			return
+		content := ""
+		for rr := range ch {
+			str, ok := rr.(string)
+			if !ok {
+				continue
+			}
+			content += str
 		}
-		content, ok := val.(string)
-		if !ok {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "chan val type error"})
+		if len(content) <= 0 {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "no content"})
 			return
 		}
 		var ret map[string]interface{}
@@ -120,7 +147,30 @@ func (s *API) ChatHandler(c *gin.Context) {
 
 func streamHandler(c *gin.Context, ch chan any) {
 	accept := c.GetHeader("Accept")
-	if accept == "text/event-stream" {
+	if accept == "application/x-ndjson" {
+		// NDJSON
+		c.Header("Content-Type", "application/x-ndjson")
+
+		c.Stream(func(w io.Writer) bool {
+			val, ok := <-ch
+			if !ok {
+				return false
+			}
+
+			bts, ok := val.(string)
+			if !ok {
+				log.Warn("NDJSON marshal error", "error", val)
+				return false
+			}
+			bts += "\n"
+			if _, err := w.Write([]byte(bts)); err != nil {
+				log.Warn("NDJSON write error:", err)
+				return false
+			}
+
+			return true
+		})
+	} else if accept == "text/event-stream" {
 		// SSE
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
@@ -132,43 +182,32 @@ func streamHandler(c *gin.Context, ch chan any) {
 			if !ok {
 				return false
 			}
-
-			bts, err := json.Marshal(val)
-			if err != nil {
-				log.Warn("SSE marshal error:", err)
+			bts, ok := val.(string)
+			if !ok {
+				log.Warn("SSE marshal error", "error", val)
 				return false
 			}
-
 			if _, err := fmt.Fprintf(w, "data: %s\n\n", bts); err != nil {
 				log.Warn("SSE write error:", err)
 				return false
 			}
-
 			return true
 		})
-
 	} else {
-		// 默认 NDJSON
-		c.Header("Content-Type", "application/x-ndjson")
-
 		c.Stream(func(w io.Writer) bool {
 			val, ok := <-ch
 			if !ok {
 				return false
 			}
-
-			bts, err := json.Marshal(val)
-			if err != nil {
-				log.Warn("NDJSON marshal error:", err)
+			bts, ok := val.(string)
+			if !ok {
+				log.Warn("default marshal error", "error", val)
 				return false
 			}
-
-			bts = append(bts, '\n')
-			if _, err := w.Write(bts); err != nil {
-				log.Warn("NDJSON write error:", err)
+			if _, err := w.Write([]byte(bts)); err != nil {
+				log.Warn("default write error:", err)
 				return false
 			}
-
 			return true
 		})
 	}
