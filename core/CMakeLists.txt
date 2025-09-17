@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.14)
 project(llama_core)
 
+if(POLICY CMP0077)
+    cmake_policy(SET CMP0077 NEW)
+endif()
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED true)
 
