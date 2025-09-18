@@ -4,11 +4,14 @@ package config
 
 import (
 	"fmt"
+	"github.com/Qitmeer/llama.go/common"
+	"github.com/Qitmeer/llama.go/model"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 	"math"
 	"net"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -41,7 +44,7 @@ var (
 	Model = &cli.StringFlag{
 		Name:        "model",
 		Aliases:     []string{"m"},
-		Usage:       "The name of the model file located in the 'model-dir' repository path",
+		Usage:       "The name of the model file located in the 'model-dir' repository path or absolute path of resource file",
 		Destination: &Conf.Model,
 	}
 
@@ -227,11 +230,68 @@ func (c *Config) Load() error {
 }
 
 func (c *Config) ModelPath() string {
-	return filepath.Join(c.ModelDir, c.Model)
+	if len(c.Model) <= 0 {
+		return ""
+	}
+	if !strings.Contains(c.Model, model.EXT) {
+		return ""
+	}
+	if common.IsFilePath(c.Model) {
+		return c.Model
+	}
+	ret, err := filepath.Abs(filepath.Join(c.ModelDir, c.Model))
+	if err != nil {
+		return ""
+	}
+	return ret
 }
 
 func (c *Config) HasModel() bool {
-	return len(c.Model) > 0
+	return len(c.ModelPath()) > 0
+}
+
+func (c *Config) GetModelFileInfos() []os.FileInfo {
+	var firstInfo os.FileInfo
+	if c.HasModel() {
+		info, err := os.Stat(c.ModelPath())
+		if err == nil {
+			firstInfo = info
+		}
+	}
+	hasAdd := false
+	ret := []os.FileInfo{}
+
+	if common.IsExist(c.ModelDir) {
+		entries, err := os.ReadDir(c.ModelDir)
+		if err != nil {
+			log.Error(err.Error())
+		} else {
+			for _, entry := range entries {
+				if entry.IsDir() {
+					continue
+				}
+				if filepath.Ext(entry.Name()) != model.EXT {
+					continue
+				}
+				info, err := entry.Info()
+				if err != nil {
+					log.Error(err.Error())
+					continue
+				}
+				ret = append(ret, info)
+				if firstInfo != nil && !hasAdd {
+					if os.SameFile(firstInfo, info) {
+						hasAdd = true
+					}
+				}
+			}
+		}
+	}
+
+	if firstInfo != nil && !hasAdd {
+		ret = append(ret, firstInfo)
+	}
+	return ret
 }
 
 func (c *Config) IsLonely() bool {
