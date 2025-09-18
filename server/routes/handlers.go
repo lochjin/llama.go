@@ -15,8 +15,6 @@ import (
 	"github.com/ollama/ollama/api"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -324,28 +322,13 @@ func (s *API) EmbeddingsHandler(c *gin.Context) {
 func (s *API) ListHandler(c *gin.Context) {
 	models := []api.ListModelResponse{}
 
-	entries, err := os.ReadDir(s.cfg.ModelDir)
-	if err != nil {
-		log.Error(err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
+	infos := s.cfg.GetModelFileInfos()
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if filepath.Ext(entry.Name()) != model.EXT {
-			continue
-		}
-		info, err := entry.Info()
-		if err != nil {
-			log.Error(err.Error())
-			continue
-		}
+	for _, info := range infos {
+
 		models = append(models, api.ListModelResponse{
-			Model:      entry.Name(),
-			Name:       entry.Name(),
+			Model:      info.Name(),
+			Name:       info.Name(),
 			Size:       info.Size(),
 			ModifiedAt: info.ModTime(),
 			Details: api.ModelDetails{
@@ -381,27 +364,10 @@ func (s *API) ShowHandler(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "model is required"})
 		return
 	}
+	infos := s.cfg.GetModelFileInfos()
 
-	entries, err := os.ReadDir(s.cfg.ModelDir)
-	if err != nil {
-		log.Error(err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if filepath.Ext(entry.Name()) != model.EXT {
-			continue
-		}
-		if entry.Name() != req.Model {
-			continue
-		}
-		info, err := entry.Info()
-		if err != nil {
-			log.Error(err.Error())
+	for _, info := range infos {
+		if info.Name() != req.Model {
 			continue
 		}
 		resp := &api.ShowResponse{
