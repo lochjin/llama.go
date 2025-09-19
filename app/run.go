@@ -4,9 +4,8 @@ package app
 
 import (
 	"github.com/Qitmeer/llama.go/config"
-	"github.com/Qitmeer/llama.go/system"
-	"github.com/Qitmeer/llama.go/system/limits"
 	"github.com/Qitmeer/llama.go/version"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 	"os"
 )
@@ -25,24 +24,24 @@ func Run() error {
 		Flags:                config.AppFlags,
 		EnableBashCompletion: true,
 		Commands:             commands(),
+		Before:               OnBefore,
 		Action: func(c *cli.Context) error {
-			err := limits.SetLimits()
-			if err != nil {
-				return err
-			}
-			interrupt := system.InterruptListener()
-
-			a := NewApp(c, config.Conf)
-			err = a.Start()
-			if err != nil {
-				return err
-			}
-			if !config.Conf.IsLonely() {
-				<-interrupt
-			}
-			return a.Stop()
+			return nil
 		},
 	}
 
 	return app.Run(os.Args)
+}
+
+func OnBefore(ctx *cli.Context) error {
+	err := initLog(config.Conf)
+	if err != nil {
+		return err
+	}
+	log.Info("Before init")
+	err = config.Conf.Load()
+	if err != nil {
+		return err
+	}
+	return nil
 }

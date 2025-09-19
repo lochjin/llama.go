@@ -88,14 +88,6 @@ var (
 		Destination: &Conf.NPredict,
 	}
 
-	Interactive = &cli.BoolFlag{
-		Name:        "interactive",
-		Aliases:     []string{"i"},
-		Usage:       "Run the program in interactive mode, allowing you to provide input directly and receive real-time responses",
-		Value:       false,
-		Destination: &Conf.Interactive,
-	}
-
 	Seed = &cli.UintFlag{
 		Name:        "seed",
 		Aliases:     []string{"s"},
@@ -184,7 +176,6 @@ var (
 		Prompt,
 		NGpuLayers,
 		NPredict,
-		Interactive,
 		Seed,
 		Pooling,
 		EmbdNormalize,
@@ -207,7 +198,6 @@ type Config struct {
 	Prompt           string
 	NGpuLayers       int
 	NPredict         int
-	Interactive      bool
 	Seed             uint
 	Pooling          string
 	EmbdNormalize    int
@@ -292,10 +282,6 @@ func (c *Config) GetModelFileInfos() []os.FileInfo {
 		ret = append(ret, firstInfo)
 	}
 	return ret
-}
-
-func (c *Config) IsLonely() bool {
-	return len(c.Prompt) > 0 || c.Interactive
 }
 
 func (c *Config) HostURL() *url.URL {
