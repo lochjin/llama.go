@@ -19,7 +19,7 @@ import (
 
 const (
 	defaultLogLevel = "info"
-	defaultNPredict = -1
+	defaultNPredict = -1 // Reference: https://github.com/Qitmeer/llama.cpp/blob/29db96f3256f839cb9bd6f72056016dcae2214ef/common/common.h#L246
 	DefaultHost     = "127.0.0.1:8081"
 	DefaultPort     = "8081"
 	DefaultModelDir = "./data/models"
