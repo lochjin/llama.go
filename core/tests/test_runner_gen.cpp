@@ -3,11 +3,12 @@
 #include <chrono>
 #include <cstdlib>
 #include <future>
-#include <unistd.h>
 
-#include "process.h"
+#include "./../src/scheduler.h"
+#include "log.h"
 
 int main() {
+    common_log_verbosity_thold=1;
     const char* env_model = "LLAMA_TEST_MODEL";
     const char* model = std::getenv(env_model);
 
@@ -18,40 +19,38 @@ int main() {
 
     std::cout << "env: " << env_model << "=" << model << std::endl;
 
-    std::stringstream ss;
-    ss << "test_runner_gen -m " << model << " --seed 0";
+    std::vector<std::string> v_args;
+    v_args.push_back("test_runner_gen");
+    v_args.push_back("-m");
+    v_args.push_back(model);
+    v_args.push_back("--seed");
+    v_args.push_back("0");
 
-    int ret = llama_start(ss.str().c_str());
-    if (ret == EXIT_FAILURE) {
-        return ret;
+    if (!Scheduler::instance().start(v_args)) {
+        return EXIT_FAILURE;
     }
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::string js_str="{\"prompt\":\"why the sky is blue\"}";
+    //std::string js_str="{\"prompt\":\"why the sky is blue\",\"stream\":true}";
 
-    std::future<void> ll_gen = std::async(std::launch::async, [](){
-        std::string js_str="{\"prompt\":\"why the sky is blue\"}";
-        Result result = llama_gen(js_str.c_str());
-        if (!result.ret) {
-            std::cout<<"fail"<<std::endl;
-            return;
-        }
+    int id=1;
+    Request rq{id,std::string(js_str)};
+    Response rp{id};
 
-        std::string content(result.content);
-        if (content.empty()) {
-            std::cout<<"fail"<<std::endl;
-            return;
-        }
-        std::cout<<"Response:"<<content<<std::endl;
+    rp.write = [](int id, const std::string& content) {
+        std::cout<<content;
+        return true;
+    };
+    rp.is_writable = [](int id) {
+        return true;
+    };
+    rp.complete = [&](int id) {};
 
-        bool ret =llama_stop();
-        std::cout<<"Result1:"<<ret<<std::endl;
-        });
+    Scheduler::instance().handle_completions_oai(rq,rp);
+    if (!rp.success) {
+        return EXIT_FAILURE;
+    }
 
-
-    ll_gen.wait();
-
-
-    std::cout<<"success"<<std::endl;
-
+    std::cout<<"stop:"<<Scheduler::instance().stop()<<std::endl;
     return EXIT_SUCCESS;
 }

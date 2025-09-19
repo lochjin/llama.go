@@ -82,17 +82,21 @@ std::string common_chat_formats(
     return ss.str();
 }
 
-Runner::Runner(int id,const std::vector<std::string>& args,bool async,const std::string& prompt) :
-    m_id(id),m_args(args),m_async(async),m_prompt(prompt),
+Runner::Runner() :
     m_params(nullptr),m_model(nullptr),m_smpl(nullptr),m_input_tokens(nullptr),m_output_ss(nullptr),m_output_tokens(nullptr) {
-    std::cout << "Runner Constructor:"<<id<<" args.size="<<args.size()<< std::endl;
 }
 
 Runner::~Runner() {
     std::cout << "Runner Destructor:"<<m_id<< std::endl;
 }
 
-bool Runner::start() {
+bool Runner::start(int id,const std::vector<std::string>& args,bool async,const std::string& prt) {
+    m_id=id;
+    m_args=args;
+    m_async=async;
+    m_prompt=prt;
+
+    std::cout << "Runner Constructor:"<<id<<" args.size="<<args.size()<< std::endl;
     if (isRunning()) {
         std::cout << "Already Start:"<<m_id<< std::endl;
         return false;

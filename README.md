@@ -24,18 +24,18 @@ or
 ### Local startup
 
 ```bash
-~ ./llama --model=qwen2.5-0.5b-q8_0.gguf --prompt=天空为什么是蓝的
+~ ./llama --model=qwen2.5-0.5b-q8_0.gguf --prompt=天空为什么是蓝的 run
 ```
 Or enable interactive mode to run:
 ```bash
-~ ./llama --model=qwen2.5-0.5b-q8_0.gguf -i
+~ ./llama --model=qwen2.5-0.5b-q8_0.gguf run
 ```
 
 
 ### As the startup of the server
 
 ```bash
-~ ./llama --model=qwen2.5-0.5b-q8_0.gguf
+~ ./llama --model=qwen2.5-0.5b-q8_0.gguf serve
 ```
 
 * Support REST API:

@@ -3,27 +3,120 @@ package app
 import (
 	"fmt"
 	"github.com/Qitmeer/llama.go/config"
+	"github.com/Qitmeer/llama.go/server"
+	"github.com/Qitmeer/llama.go/system"
+	"github.com/Qitmeer/llama.go/system/limits"
 	"github.com/Qitmeer/llama.go/wrapper"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 	"os"
+	"sync"
 )
 
 func commands() []*cli.Command {
 	cmds := []*cli.Command{}
+	cmds = append(cmds, serveCmd())
+	cmds = append(cmds, runCmd())
 	cmds = append(cmds, downloadCmd())
 	cmds = append(cmds, embeddingCmd())
 	cmds = append(cmds, whisperCmd())
 	return cmds
 }
 
+func serveCmd() *cli.Command {
+	return &cli.Command{
+		Name:        "serve",
+		Aliases:     []string{"s"},
+		Category:    "llama",
+		Usage:       "llama.go server",
+		Description: "llama.go server",
+		Before:      OnBefore,
+		Action: func(ctx *cli.Context) error {
+			err := limits.SetLimits()
+			if err != nil {
+				return err
+			}
+			interrupt := system.InterruptListener()
+			cfg := config.Conf
+
+			ser := server.New(ctx, cfg)
+
+			err = wrapper.LlamaStart(cfg)
+			if err != nil {
+				log.Error(err.Error())
+			}
+			log.Info("Started llama core")
+
+			err = ser.Start()
+			defer func() {
+				err = ser.Stop()
+				if err != nil {
+					log.Error(err.Error())
+				}
+				err = wrapper.LlamaStop()
+				if err != nil {
+					log.Error(err.Error())
+				}
+			}()
+
+			if err != nil {
+				return err
+			}
+			<-interrupt
+
+			return nil
+		},
+	}
+}
+
+func runCmd() *cli.Command {
+	return &cli.Command{
+		Name:        "run",
+		Aliases:     []string{"r"},
+		Category:    "llama",
+		Usage:       "llama.go run",
+		Description: "llama.go run",
+		Before:      OnBefore,
+		Action: func(ctx *cli.Context) error {
+			err := limits.SetLimits()
+			if err != nil {
+				return err
+			}
+			interrupt := system.InterruptListener()
+			cfg := config.Conf
+
+			var wg sync.WaitGroup
+			wg.Add(1)
+
+			go func() {
+				defer wg.Done()
+				err = wrapper.LlamaStartInteractive(cfg)
+				if err != nil {
+					log.Error(err.Error())
+				}
+			}()
+			<-interrupt
+
+			log.Info("Stop run cmd")
+			err = wrapper.LlamaStopInteractive()
+			if err != nil {
+				log.Error(err.Error())
+			}
+			wg.Wait()
+			log.Info("Stopped run cmd")
+			return nil
+		},
+	}
+}
+
 func downloadCmd() *cli.Command {
 	return &cli.Command{
 		Name:        "download",
-		Aliases:     []string{"r"},
+		Aliases:     []string{"d"},
 		Category:    "llama",
 		Usage:       "Download model",
 		Description: "Download model",
+		Before:      OnBefore,
 		Action: func(ctx *cli.Context) error {
 			return nil
 		},
@@ -37,17 +130,10 @@ func embeddingCmd() *cli.Command {
 		Category:    "llama",
 		Usage:       "Generate high-dimensional embedding vector of a given text",
 		Description: "Generate high-dimensional embedding vector of a given text",
+		Before:      OnBefore,
 		Action: func(ctx *cli.Context) error {
 			cfg := config.Conf
-			err := initLog(cfg)
-			if err != nil {
-				return err
-			}
 			log.Info("Start embedding")
-			err = cfg.Load()
-			if err != nil {
-				return err
-			}
 			ret, err := wrapper.LlamaEmbedding(cfg, cfg.ModelPath(), cfg.Prompt, cfg.EmbdOutputFormat)
 			if err != nil {
 				return err
@@ -89,17 +175,10 @@ func whisperCmd() *cli.Command {
 				Usage:   "Input file path for generate.",
 			},
 		},
+		Before: OnBefore,
 		Action: func(ctx *cli.Context) error {
 			cfg := config.Conf
-			err := initLog(cfg)
-			if err != nil {
-				return err
-			}
 			log.Info("Start whisper")
-			err = cfg.Load()
-			if err != nil {
-				return err
-			}
 			if !ctx.IsSet("input") {
 				return fmt.Errorf("No input file")
 			}

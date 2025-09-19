@@ -3,11 +3,14 @@
 #include "event_processor.h"
 #include "sampling.h"
 #include "message.h"
+#include "singleton.h"
 
-class Runner {
+class Runner: public patterns::Singleton<Runner> {
+    friend class patterns::Singleton<Runner>;
+
 private:
     int m_id;
-    const std::vector<std::string> m_args;
+    std::vector<std::string> m_args;
     EventProcessor m_eprocessor;
     std::atomic<bool> m_running;
     bool m_async;
@@ -22,10 +25,10 @@ private:
     std::ostringstream       * m_output_ss;
     std::vector<llama_token> * m_output_tokens;
 
-public:
-    Runner(int id,const std::vector<std::string>& args,bool async= false,const std::string& prompt="");
+    Runner();
     ~Runner();
-    bool start();
+public:
+    bool start(int id,const std::vector<std::string>& args,bool async= false,const std::string& prt="");
     bool stop();
     const std::string generate(const std::string& prompt);
     const std::string chat(const std::vector<Message>& mgs);

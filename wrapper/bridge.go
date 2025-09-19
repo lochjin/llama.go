@@ -20,10 +20,7 @@ var (
 	nextChanID = 1
 )
 
-func LlamaInteractive(cfg *config.Config) error {
-	if !cfg.Interactive {
-		return fmt.Errorf("Not config interactive")
-	}
+func LlamaStartInteractive(cfg *config.Config) error {
 	if !cfg.HasModel() {
 		return fmt.Errorf("No model")
 	}
@@ -35,7 +32,15 @@ func LlamaInteractive(cfg *config.Config) error {
 	ca := C.CString(cfgArgs)
 	defer C.free(unsafe.Pointer(ca))
 
-	ret := C.llama_interactive(ca, ip)
+	ret := C.llama_interactive_start(ca, ip)
+	if !bool(ret) {
+		return fmt.Errorf("Llama interactive error")
+	}
+	return nil
+}
+
+func LlamaStopInteractive() error {
+	ret := C.llama_interactive_stop()
 	if !bool(ret) {
 		return fmt.Errorf("Llama interactive error")
 	}
