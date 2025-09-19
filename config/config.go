@@ -19,7 +19,7 @@ import (
 
 const (
 	defaultLogLevel = "info"
-	defaultNPredict = 512
+	defaultNPredict = -1
 	DefaultHost     = "127.0.0.1:8081"
 	DefaultPort     = "8081"
 	DefaultModelDir = "./data/models"
