@@ -18,11 +18,37 @@ import (
 )
 
 const (
-	defaultLogLevel    = "info"
-	defaultNPredict    = -1 // Reference: https://github.com/Qitmeer/llama.cpp/blob/29db96f3256f839cb9bd6f72056016dcae2214ef/common/common.h#L246
-	DefaultHost        = "127.0.0.1:8081"
-	DefaultPort        = "8081"
-	DefaultModelDir    = "./data/models"
+	// ---------------------------------------------------------------------
+	// Defaults in this file are intentionally aligned with upstream llama.cpp
+	// (struct `common_params`). Keeping them in sync ensures that developers
+	// familiar with llama.cpp see consistent behavior in llama.go, and avoids
+	// subtle bugs such as prompt truncation caused by divergent defaults.
+	//
+	// Upstream reference :
+	//   - llama.cpp `common/common.h`, field: `common_params`
+	//   - URL   : https://github.com/Qitmeer/llama.cpp/blob/29db96f3256f839cb9bd6f72056016dcae2214ef/common/common.h#L246
+	//
+	// If upstream changes the defaults, please update the corresponding
+	// constants here and keep this comment’s commit hash in sync.
+	// ---------------------------------------------------------------------
+
+	defaultLogLevel = "info"
+
+	// defaultNPredict controls the maximum number of tokens to generate.
+	// Semantics:
+	//   -1 : unlimited (generation is only bounded by stop conditions)
+	//   -2 : generate until the context window is filled (supported by llama.cpp)
+	//
+	// Rationale:
+	//   We keep the default at -1 to mirror llama.cpp’s `common_params::n_predict`
+	//   in order to avoid reserving a fixed output budget (e.g., 512 tokens)
+	//   that would reduce the effective prompt capacity (`n_ctx - n_predict`)
+	//   and lead to surprising prompt truncation when clients omit num_predict.
+	defaultNPredict = -1
+
+	DefaultHost     = "127.0.0.1:8081"
+	DefaultPort     = "8081"
+	DefaultModelDir = "./data/models"
 	DefaultContextSize = 4096
 )
 
