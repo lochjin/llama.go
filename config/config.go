@@ -18,11 +18,12 @@ import (
 )
 
 const (
-	defaultLogLevel = "info"
-	defaultNPredict = -1 // Reference: https://github.com/Qitmeer/llama.cpp/blob/29db96f3256f839cb9bd6f72056016dcae2214ef/common/common.h#L246
-	DefaultHost     = "127.0.0.1:8081"
-	DefaultPort     = "8081"
-	DefaultModelDir = "./data/models"
+	defaultLogLevel    = "info"
+	defaultNPredict    = -1 // Reference: https://github.com/Qitmeer/llama.cpp/blob/29db96f3256f839cb9bd6f72056016dcae2214ef/common/common.h#L246
+	DefaultHost        = "127.0.0.1:8081"
+	DefaultPort        = "8081"
+	DefaultModelDir    = "./data/models"
+	DefaultContextSize = 4096
 )
 
 var (
@@ -61,7 +62,7 @@ var (
 		Name:        "ctx-size",
 		Aliases:     []string{"c"},
 		Usage:       "Set the size of the prompt context. The default is 4096, but if a LLaMA model was built with a longer context, increasing this value will provide better results for longer input/inference",
-		Value:       4096,
+		Value:       DefaultContextSize,
 		Destination: &Conf.CtxSize,
 	}
 

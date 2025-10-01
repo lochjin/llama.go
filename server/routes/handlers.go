@@ -20,6 +20,18 @@ import (
 	"time"
 )
 
+func (s *API) VersionHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"version": version.String()})
+}
+
+func (s *API) HealthHandler(c *gin.Context) {
+	c.String(http.StatusOK, "Llama.go is running")
+}
+
+func (s *API) PullHandler(c *gin.Context) {
+
+}
+
 func (s *API) PsHandler(c *gin.Context) {
 	models := []api.ProcessModelResponse{}
 	slices.SortStableFunc(models, func(i, j api.ProcessModelResponse) int {

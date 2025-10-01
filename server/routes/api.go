@@ -2,12 +2,10 @@ package routes
 
 import (
 	"github.com/Qitmeer/llama.go/config"
-	"github.com/Qitmeer/llama.go/version"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gin-gonic/gin"
 	"github.com/ollama/ollama/openai"
 	"github.com/ollama/ollama/template"
-	"net/http"
 )
 
 type API struct {
@@ -35,9 +33,12 @@ func (s *API) Start() error {
 
 func (s *API) Setup(r *gin.Engine) {
 	// General
-	r.HEAD("/api/version", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"version": version.String()}) })
-	r.GET("/api/version", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"version": version.String()}) })
+	r.HEAD("/health", s.HealthHandler)
+	r.GET("/health", s.HealthHandler)
+	r.HEAD("/api/version", s.VersionHandler)
+	r.GET("/api/version", s.VersionHandler)
 
+	r.POST("/api/pull", s.PullHandler)
 	r.HEAD("/api/tags", s.ListHandler)
 	r.GET("/api/tags", s.ListHandler)
 	r.HEAD("/api/models", s.ListHandler)
