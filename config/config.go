@@ -49,6 +49,7 @@ const (
 	DefaultHost     = "127.0.0.1:8081"
 	DefaultPort     = "8081"
 	DefaultModelDir = "./data/models"
+	DefaultContextSize = 4096
 )
 
 var (
@@ -87,7 +88,7 @@ var (
 		Name:        "ctx-size",
 		Aliases:     []string{"c"},
 		Usage:       "Set the size of the prompt context. The default is 4096, but if a LLaMA model was built with a longer context, increasing this value will provide better results for longer input/inference",
-		Value:       4096,
+		Value:       DefaultContextSize,
 		Destination: &Conf.CtxSize,
 	}
 
@@ -180,7 +181,7 @@ var (
 	Host = &cli.StringFlag{
 		Name:        "host",
 		Aliases:     []string{"ho"},
-		Usage:       fmt.Sprintf("IP Address for the ollama server (default %s)", DefaultHost),
+		Usage:       fmt.Sprintf("IP Address for the llama.go server (default %s)", DefaultHost),
 		Value:       DefaultHost,
 		EnvVars:     []string{"LLAMAGO_HOST"},
 		Destination: &Conf.Host,

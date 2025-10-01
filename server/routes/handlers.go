@@ -6,19 +6,30 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	qapi "github.com/Qitmeer/llama.go/api"
+	"github.com/Qitmeer/llama.go/api"
 	"github.com/Qitmeer/llama.go/model"
 	"github.com/Qitmeer/llama.go/version"
 	"github.com/Qitmeer/llama.go/wrapper"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gin-gonic/gin"
-	"github.com/ollama/ollama/api"
 	"io"
 	"net/http"
 	"slices"
 	"strings"
 	"time"
 )
+
+func (s *API) VersionHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"version": version.String()})
+}
+
+func (s *API) HealthHandler(c *gin.Context) {
+	c.String(http.StatusOK, "Llama.go is running")
+}
+
+func (s *API) PullHandler(c *gin.Context) {
+
+}
 
 func (s *API) PsHandler(c *gin.Context) {
 	models := []api.ProcessModelResponse{}
@@ -384,11 +395,11 @@ func (s *API) ShowHandler(c *gin.Context) {
 }
 
 func (s *API) PropsHandler(c *gin.Context) {
-	prep := qapi.PropsResponse{
+	prep := api.PropsResponse{
 		ModelPath: s.cfg.ModelPath(),
 		BuildInfo: version.String(),
 		NCtx:      int64(s.cfg.CtxSize),
-		Modalities: qapi.Modalities{
+		Modalities: api.Modalities{
 			Vision: false,
 			Audio:  false,
 		},
