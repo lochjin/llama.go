@@ -8,7 +8,6 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.20
-	github.com/ollama/ollama v0.9.2
 	github.com/urfave/cli/v2 v2.27.5
 )
 
@@ -55,5 +54,3 @@ require (
 	gorgonia.org/vecf32 v0.9.0 // indirect
 	gorgonia.org/vecf64 v0.9.0 // indirect
 )
-
-replace github.com/ollama/ollama v0.9.2 => github.com/Qitmeer/ollama v0.9.2-q.0

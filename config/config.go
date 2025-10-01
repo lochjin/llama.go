@@ -155,7 +155,7 @@ var (
 	Host = &cli.StringFlag{
 		Name:        "host",
 		Aliases:     []string{"ho"},
-		Usage:       fmt.Sprintf("IP Address for the ollama server (default %s)", DefaultHost),
+		Usage:       fmt.Sprintf("IP Address for the llama.go server (default %s)", DefaultHost),
 		Value:       DefaultHost,
 		EnvVars:     []string{"LLAMAGO_HOST"},
 		Destination: &Conf.Host,
