@@ -67,7 +67,7 @@ bool Scheduler::start(const std::vector<std::string>& args) {
     // print sample chat example to make it clear which template is used
     LOG_INF("%s: chat template, chat_template: %s, example_format: '%s'\n", __func__,
             common_chat_templates_source(ctx_server.chat_templates.get()),
-            common_chat_format_example(ctx_server.chat_templates.get(), ctx_server.params_base.use_jinja).c_str());
+            common_chat_format_example(ctx_server.chat_templates.get(), ctx_server.params_base.use_jinja, ctx_server.params_base.default_template_kwargs).c_str());
 
     ctx_server.queue_tasks.on_new_task([this](server_task && task) {
         ctx_server.process_single_task(std::move(task));
@@ -140,71 +140,39 @@ void Scheduler::handle_completions_impl(
         // TODO: this log can become very long, put it behind a flag or think about a more compact format
         //SRV_DBG("Prompt: %s\n", prompt.is_string() ? prompt.get<std::string>().c_str() : prompt.dump(2).c_str());
 
-        // process files
-        mtmd::bitmaps bitmaps;
-        const bool has_mtmd = ctx_server.mctx != nullptr;
-        {
-            if (!has_mtmd && !files.empty()) {
-                throw std::runtime_error("This server does not support multimodal");
-            }
-            for (auto & file : files) {
-                mtmd::bitmap bmp(mtmd_helper_bitmap_init_from_buf(ctx_server.mctx, file.data(), file.size()));
-                if (!bmp.ptr) {
-                    throw std::runtime_error("Failed to load image or audio file");
-                }
-                // calculate bitmap hash (for KV caching)
-                std::string hash = fnv_hash(bmp.data(), bmp.n_bytes());
-                bmp.set_id(hash.c_str());
-                bitmaps.entries.push_back(std::move(bmp));
-            }
-        }
-
         // process prompt
         std::vector<server_tokens> inputs;
 
-        if (oaicompat && has_mtmd) {
-            // multimodal
-            std::string prompt_str = prompt.get<std::string>();
-            mtmd_input_text inp_txt = {
-                    prompt_str.c_str(),
-                    /* add_special */   true,
-                    /* parse_special */ true,
-            };
-            mtmd::input_chunks chunks(mtmd_input_chunks_init());
-            auto bitmaps_c_ptr = bitmaps.c_ptr();
-            int32_t tokenized = mtmd_tokenize(ctx_server.mctx,
-                                              chunks.ptr.get(),
-                                              &inp_txt,
-                                              bitmaps_c_ptr.data(),
-                                              bitmaps_c_ptr.size());
-            if (tokenized != 0) {
-                throw std::runtime_error("Failed to tokenize prompt");
-            }
-
-            server_tokens tmp(chunks, true);
-            inputs.push_back(std::move(tmp));
+        if (oaicompat && ctx_server.mctx != nullptr) {
+            // This is the case used by OAI compatible chat path with MTMD. TODO It can be moved to the path below.
+            inputs.push_back(process_mtmd_prompt(ctx_server.mctx, prompt.get<std::string>(), files));
         } else {
-            // non-multimodal version
-            auto tokenized_prompts = tokenize_input_prompts(ctx_server.vocab, prompt, true, true);
-            for (auto & p : tokenized_prompts) {
-                auto tmp = server_tokens(p, ctx_server.mctx != nullptr);
-                inputs.push_back(std::move(tmp));
-            }
+            // Everything else, including multimodal completions.
+            inputs = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt, true, true);
         }
 
+        const size_t n_ctx_slot = ctx_server.n_ctx / ctx_server.params_base.n_parallel;
         tasks.reserve(inputs.size());
         for (size_t i = 0; i < inputs.size(); i++) {
+            auto n_prompt_tokens = inputs[i].size();
+            if (n_prompt_tokens >= n_ctx_slot) {
+                json error_data = format_error_response("the request exceeds the available context size, try increasing it", ERROR_TYPE_EXCEED_CONTEXT_SIZE);
+                error_data["n_prompt_tokens"] = n_prompt_tokens;
+                error_data["n_ctx"] = n_ctx_slot;
+                res_error(res, error_data);
+                return;
+            }
             server_task task = server_task(type);
 
             task.id    = ctx_server.queue_tasks.get_new_id();
             task.index = i;
 
-            task.prompt_tokens    = std::move(inputs[i]);
-            task.params           = server_task::params_from_json_cmpl(
+            task.tokens = std::move(inputs[i]);
+            task.params = server_task::params_from_json_cmpl(
                     ctx_server.ctx,
                     ctx_server.params_base,
                     data);
-            task.id_selected_slot = json_value(data, "id_slot", -1);
+            task.id_slot = json_value(data, "id_slot", -1);
 
             // OAI-compat
             task.params.oaicompat                 = oaicompat;
@@ -243,9 +211,9 @@ void Scheduler::handle_completions_impl(
         res.complete(res.id);
         ctx_server.queue_results.remove_waiting_task_ids(task_ids);
     } else {
-        auto server_sent_event=[&](const char * event, const json & data) {
+        auto server_sent_event=[&](const json & data) {
             const std::string str =
-                    std::string(event) + ": " +
+                    "data: " +
                     data.dump(-1, ' ', false, json::error_handler_t::replace) +
                     "\n\n"; // required by RFC 8895 - A message is terminated by a blank line (two line terminators in a row).
 
@@ -257,17 +225,17 @@ void Scheduler::handle_completions_impl(
             json res_json = result->to_json();
             if (res_json.is_array()) {
                 for (const auto & res : res_json) {
-                    if (!server_sent_event("data", res)) {
+                    if (!server_sent_event(res)) {
                         // sending failed (HTTP connection closed), cancel the generation
                         return false;
                     }
                 }
                 return true;
             } else {
-                return server_sent_event("data", res_json);
+                return server_sent_event(res_json);
             }
         }, [&](const json & error_data) {
-            server_sent_event("error", error_data);
+            server_sent_event(json{{"error", error_data}});
         }, [&res]() {
             // note: do not use req.is_connection_closed here because req is already destroyed
             return !res.is_writable(res.id);
@@ -350,7 +318,7 @@ void Scheduler::handle_embeddings_impl(const Request & req, Response & res, oaic
         }
     }
 
-    auto tokenized_prompts = tokenize_input_prompts(ctx_server.vocab, prompt, true, true);
+    auto tokenized_prompts = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt, true, true);
     for (const auto & tokens : tokenized_prompts) {
         // this check is necessary for models that do not add BOS token to the input
         if (tokens.empty()) {
@@ -376,9 +344,9 @@ void Scheduler::handle_embeddings_impl(const Request & req, Response & res, oaic
         for (size_t i = 0; i < tokenized_prompts.size(); i++) {
             server_task task = server_task(SERVER_TASK_TYPE_EMBEDDING);
 
-            task.id            = ctx_server.queue_tasks.get_new_id();
-            task.index         = i;
-            task.prompt_tokens = server_tokens(tokenized_prompts[i], ctx_server.mctx != nullptr);
+            task.id     = ctx_server.queue_tasks.get_new_id();
+            task.index  = i;
+            task.tokens = std::move(tokenized_prompts[i]);
 
             // OAI-compat
             task.params.oaicompat = oaicompat;
