@@ -108,6 +108,10 @@ bool Scheduler::is_running() {
     return running;
 }
 
+common_params * Scheduler::get_common_params() {
+    return &ctx_server.params_base;
+}
+
 void Scheduler::handle_completions(const Request & req, Response & res) {
     json data = json::parse(req.body);
     std::vector<raw_buffer> files; // dummy
@@ -402,3 +406,43 @@ void Scheduler::res_ok(Response & res, const json & data) {
     res.write(res.id,safe_json_to_str(data));
     res.success= true;
 };
+
+std::string Scheduler::get_props() {
+    json default_generation_settings_for_props;
+
+    {
+        slot_params params;
+
+        params.sampling = ctx_server.params_base.sampling;
+
+        default_generation_settings_for_props = json {
+                {"params", params.to_json(true)},
+                {"n_ctx",  ctx_server.slots[0].n_ctx},
+        };
+    }
+
+    // this endpoint is publicly available, please only return what is safe to be exposed
+    json data = {
+            { "default_generation_settings", default_generation_settings_for_props },
+            { "total_slots",                 ctx_server.params_base.n_parallel },
+            { "model_path",                  ctx_server.params_base.model.path },
+            { "modalities",                  json {
+                    {"vision", ctx_server.oai_parser_opt.allow_image},
+                    {"audio",  ctx_server.oai_parser_opt.allow_audio},
+            } },
+            { "endpoint_slots",              ctx_server.params_base.endpoint_slots },
+            { "endpoint_props",              ctx_server.params_base.endpoint_props },
+            { "endpoint_metrics",            ctx_server.params_base.endpoint_metrics },
+            { "webui",                       ctx_server.params_base.webui },
+            { "chat_template",               common_chat_templates_source(ctx_server.chat_templates.get()) },
+            { "bos_token",                   common_token_to_piece(ctx_server.ctx, llama_vocab_bos(ctx_server.vocab), /* special= */ true)},
+            { "eos_token",                   common_token_to_piece(ctx_server.ctx, llama_vocab_eos(ctx_server.vocab), /* special= */ true)},
+            { "build_info",                  build_info },
+    };
+    if (ctx_server.params_base.use_jinja) {
+        if (auto tool_use_src = common_chat_templates_source(ctx_server.chat_templates.get(), "tool_use")) {
+            data["chat_template_tool_use"] = tool_use_src;
+        }
+    }
+    return safe_json_to_str(data);
+}

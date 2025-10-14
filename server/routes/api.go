@@ -34,8 +34,9 @@ func (s *API) Setup(r *gin.Engine) {
 	r.GET("/api/models", s.ListHandler)
 	r.POST("/api/show", s.ShowHandler)
 	r.GET("/api/ps", s.PsHandler)
-	r.GET("/api/props", s.PropsHandler)
 	r.GET("/props", s.PropsHandler)
+	r.POST("/props", s.PropsChangeHandler)
+	r.GET("/slots", s.SlotsHandler)
 
 	r.POST("/api/generate", s.GenerateHandler)
 	r.POST("/api/chat", s.ChatHandler)

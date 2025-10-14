@@ -102,3 +102,25 @@ Result whisper_gen(const char * model,const char * input) {
 
     return {true,arr};
 }
+
+CommonParams get_common_params() {
+    if (!Scheduler::instance().is_running()) {
+        return {false};
+    }
+    return {Scheduler::instance().get_common_params()->endpoint_props};
+}
+
+Result get_props() {
+    if (!Scheduler::instance().is_running()) {
+        return {false};
+    }
+    std::string result = Scheduler::instance().get_props();
+    if (result.empty()) {
+        return {false};
+    }
+    char* arr = new char[result.size() + 1];
+    std::copy(result.begin(), result.end(), arr);
+    arr[result.size()] = '\0';
+
+    return {true,arr};
+}
