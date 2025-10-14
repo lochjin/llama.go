@@ -80,8 +80,12 @@ func LlamaStart(cfg *config.Config) error {
 	if !cfg.HasModel() {
 		return fmt.Errorf("No model")
 	}
-	cfgArgs := fmt.Sprintf("llama --model %s --ctx-size %d --n-gpu-layers %d --n-predict %d --seed %d --jinja",
-		cfg.ModelPath(), cfg.CtxSize, cfg.NGpuLayers, cfg.NPredict, cfg.Seed)
+	jinja := ""
+	if cfg.Jinja {
+		jinja = " --jinja"
+	}
+	cfgArgs := fmt.Sprintf("llama --model %s --ctx-size %d --n-gpu-layers %d --n-predict %d --seed %d%s",
+		cfg.ModelPath(), cfg.CtxSize, cfg.NGpuLayers, cfg.NPredict, cfg.Seed, jinja)
 	ca := C.CString(cfgArgs)
 	defer C.free(unsafe.Pointer(ca))
 
