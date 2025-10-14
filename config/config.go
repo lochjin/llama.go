@@ -221,6 +221,7 @@ var (
 		OutputFile,
 		Host,
 		Origins,
+		Jinja,
 	}
 )
 
