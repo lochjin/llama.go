@@ -80,8 +80,12 @@ func LlamaStart(cfg *config.Config) error {
 	if !cfg.HasModel() {
 		return fmt.Errorf("No model")
 	}
-	cfgArgs := fmt.Sprintf("llama --model %s --ctx-size %d --n-gpu-layers %d --n-predict %d --seed %d",
-		cfg.ModelPath(), cfg.CtxSize, cfg.NGpuLayers, cfg.NPredict, cfg.Seed)
+	jinja := ""
+	if cfg.Jinja {
+		jinja = " --jinja"
+	}
+	cfgArgs := fmt.Sprintf("llama --model %s --ctx-size %d --n-gpu-layers %d --n-predict %d --seed %d%s",
+		cfg.ModelPath(), cfg.CtxSize, cfg.NGpuLayers, cfg.NPredict, cfg.Seed, jinja)
 	ca := C.CString(cfgArgs)
 	defer C.free(unsafe.Pointer(ca))
 
@@ -191,4 +195,20 @@ func CloseChan(id C.int) {
 		delete(channels, int(id))
 	}
 	mu.Unlock()
+}
+
+func GetCommonParams() CommonParams {
+	ret := C.get_common_params()
+	return CommonParams{EndpointProps: bool(ret.endpoint_props)}
+}
+
+func GetProps() (string, error) {
+	ret := C.get_props()
+	if !bool(ret.ret) {
+		return "", fmt.Errorf("Llama run error")
+	}
+
+	content := C.GoString(ret.content)
+	C.free(unsafe.Pointer(ret.content))
+	return content, nil
 }

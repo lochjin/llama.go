@@ -11,6 +11,10 @@ typedef struct Result {
     const char *content;
 } Result;
 
+typedef struct CommonParams {
+    bool endpoint_props;
+}CommonParams;
+
 bool llama_start(const char * args);
 bool llama_stop();
 Result llama_gen(int id,const char * js_str);
@@ -20,6 +24,9 @@ bool llama_interactive_start(const char * args,const char * prompt);
 bool llama_interactive_stop();
 
 Result whisper_gen(const char * model,const char * input);
+
+CommonParams get_common_params();
+Result get_props();
 
 #ifdef __cplusplus
 }

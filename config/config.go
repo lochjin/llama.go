@@ -46,9 +46,9 @@ const (
 	//   and lead to surprising prompt truncation when clients omit num_predict.
 	defaultNPredict = -1
 
-	DefaultHost     = "127.0.0.1:8081"
-	DefaultPort     = "8081"
-	DefaultModelDir = "./data/models"
+	DefaultHost        = "127.0.0.1:8081"
+	DefaultPort        = "8081"
+	DefaultModelDir    = "./data/models"
 	DefaultContextSize = 4096
 )
 
@@ -195,6 +195,14 @@ var (
 		Destination: &Conf.Origins,
 	}
 
+	Jinja = &cli.BoolFlag{
+		Name:        "jinja",
+		Aliases:     []string{"j"},
+		Usage:       "use jinja template for chat (default: disabled)",
+		Value:       false,
+		Destination: &Conf.Jinja,
+	}
+
 	AppFlags = []cli.Flag{
 		LogLevel,
 		Model,
@@ -213,6 +221,7 @@ var (
 		OutputFile,
 		Host,
 		Origins,
+		Jinja,
 	}
 )
 
@@ -235,6 +244,7 @@ type Config struct {
 	OutputFile       string
 	Host             string
 	Origins          string
+	Jinja            bool
 }
 
 func (c *Config) Load() error {

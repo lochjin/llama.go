@@ -395,14 +395,22 @@ func (s *API) ShowHandler(c *gin.Context) {
 }
 
 func (s *API) PropsHandler(c *gin.Context) {
-	prep := api.PropsResponse{
-		ModelPath: s.cfg.ModelPath(),
-		BuildInfo: version.String(),
-		NCtx:      int64(s.cfg.CtxSize),
-		Modalities: api.Modalities{
-			Vision: false,
-			Audio:  false,
-		},
+	jsonStr, err := wrapper.GetProps()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
-	c.JSON(http.StatusOK, prep)
+	c.Data(http.StatusOK, "application/json; charset=utf-8", []byte(jsonStr))
+}
+
+func (s *API) PropsChangeHandler(c *gin.Context) {
+	if !wrapper.GetCommonParams().EndpointProps {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "This server does not support changing global properties. Start it with `--props`"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (s *API) SlotsHandler(c *gin.Context) {
+	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "This server does not support slots endpoint. Start it with `--slots`"})
 }

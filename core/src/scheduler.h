@@ -44,4 +44,6 @@ public:
     void handle_embeddings_oai(const Request & req, Response & res);
     void res_error(Response & res, const json & error_data);
     void res_ok(Response & res, const json & data);
+    common_params *get_common_params();
+    std::string get_props();
 };
