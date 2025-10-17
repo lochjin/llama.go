@@ -48,7 +48,7 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		return
 	}
 
-	bodyStr := string(bodyBytes)
+	//bodyStr := string(bodyBytes)
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	var req api.GenerateRequest
@@ -66,7 +66,11 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		return
 	}
 	go func() {
-		err = wrapper.LlamaGenerate(id, bodyStr)
+		stream := false
+		if req.Stream != nil {
+			stream = *req.Stream
+		}
+		err = wrapper.LlamaGenerate(id, fmt.Sprintf("{\"prompt\":\"%s\",\"stream\":%v}", req.Prompt, stream))
 		if err != nil {
 			log.Warn(err.Error())
 			return

@@ -1,7 +1,10 @@
 package app
 
 import (
+	"context"
 	"fmt"
+	"github.com/Qitmeer/llama.go/api"
+	"github.com/Qitmeer/llama.go/app/run"
 	"github.com/Qitmeer/llama.go/config"
 	"github.com/Qitmeer/llama.go/server"
 	"github.com/Qitmeer/llama.go/system"
@@ -11,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 	"os"
-	"sync"
 )
 
 func commands() []*cli.Command {
@@ -23,6 +25,23 @@ func commands() []*cli.Command {
 	cmds = append(cmds, embeddingCmd())
 	cmds = append(cmds, whisperCmd())
 	return cmds
+}
+
+func OnBefore(ctx *cli.Context) error {
+	err := initLog(config.Conf)
+	if err != nil {
+		return err
+	}
+	return checkServerHeartbeat(ctx.Context)
+}
+
+func OnBeforeForServe(ctx *cli.Context) error {
+	log.Info("Before init")
+	err := config.Conf.Load()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func versionCmd() *cli.Command {
@@ -39,6 +58,19 @@ func versionCmd() *cli.Command {
 	}
 }
 
+func runCmd() *cli.Command {
+	return &cli.Command{
+		Name:        "run",
+		Aliases:     []string{"r"},
+		Category:    "llama",
+		Usage:       "llama.go run",
+		Description: "llama.go run",
+		Flags:       run.AppFlags,
+		Before:      OnBefore,
+		Action:      run.RunHandler,
+	}
+}
+
 func serveCmd() *cli.Command {
 	return &cli.Command{
 		Name:        "serve",
@@ -46,7 +78,7 @@ func serveCmd() *cli.Command {
 		Category:    "llama",
 		Usage:       "llama.go server",
 		Description: "llama.go server",
-		Before:      OnBefore,
+		Before:      OnBeforeForServe,
 		Action: func(ctx *cli.Context) error {
 			err := limits.SetLimits()
 			if err != nil {
@@ -80,46 +112,6 @@ func serveCmd() *cli.Command {
 			}
 			<-interrupt
 
-			return nil
-		},
-	}
-}
-
-func runCmd() *cli.Command {
-	return &cli.Command{
-		Name:        "run",
-		Aliases:     []string{"r"},
-		Category:    "llama",
-		Usage:       "llama.go run",
-		Description: "llama.go run",
-		Before:      OnBefore,
-		Action: func(ctx *cli.Context) error {
-			err := limits.SetLimits()
-			if err != nil {
-				return err
-			}
-			interrupt := system.InterruptListener()
-			cfg := config.Conf
-
-			var wg sync.WaitGroup
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-				err = wrapper.LlamaStartInteractive(cfg)
-				if err != nil {
-					log.Error(err.Error())
-				}
-			}()
-			<-interrupt
-
-			log.Info("Stop run cmd")
-			err = wrapper.LlamaStopInteractive()
-			if err != nil {
-				log.Error(err.Error())
-			}
-			wg.Wait()
-			log.Info("Stopped run cmd")
 			return nil
 		},
 	}
@@ -211,4 +203,13 @@ func whisperCmd() *cli.Command {
 			return nil
 		},
 	}
+}
+
+func checkServerHeartbeat(ctx context.Context) error {
+	client := api.DefaultClient()
+	err := client.Heartbeat(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
 }

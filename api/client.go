@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Qitmeer/llama.go/config"
 	"github.com/Qitmeer/llama.go/format"
 	"github.com/Qitmeer/llama.go/version"
 	"io"
@@ -311,4 +312,8 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 	}
 
 	return version.Version, nil
+}
+
+func DefaultClient() *Client {
+	return NewClient(config.Conf.HostURL(), http.DefaultClient)
 }
