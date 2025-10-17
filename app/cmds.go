@@ -6,6 +6,7 @@ import (
 	"github.com/Qitmeer/llama.go/server"
 	"github.com/Qitmeer/llama.go/system"
 	"github.com/Qitmeer/llama.go/system/limits"
+	"github.com/Qitmeer/llama.go/version"
 	"github.com/Qitmeer/llama.go/wrapper"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
@@ -15,12 +16,27 @@ import (
 
 func commands() []*cli.Command {
 	cmds := []*cli.Command{}
+	cmds = append(cmds, versionCmd())
 	cmds = append(cmds, serveCmd())
 	cmds = append(cmds, runCmd())
 	cmds = append(cmds, downloadCmd())
 	cmds = append(cmds, embeddingCmd())
 	cmds = append(cmds, whisperCmd())
 	return cmds
+}
+
+func versionCmd() *cli.Command {
+	return &cli.Command{
+		Name:        "version",
+		Aliases:     []string{"v"},
+		Category:    "llama",
+		Usage:       "Show llama.go version",
+		Description: "Show llama.go version",
+		Action: func(ctx *cli.Context) error {
+			print(version.String())
+			return nil
+		},
+	}
 }
 
 func serveCmd() *cli.Command {
