@@ -24,8 +24,8 @@ func Run() error {
 		Flags:                config.AppFlags,
 		EnableBashCompletion: true,
 		Commands:             commands(),
-		Before:               OnBefore,
 		Action: func(c *cli.Context) error {
+			print(version.String())
 			return nil
 		},
 	}
