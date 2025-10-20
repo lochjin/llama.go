@@ -65,11 +65,11 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "task id error"})
 		return
 	}
+	stream := true
+	if req.Stream != nil {
+		stream = *req.Stream
+	}
 	go func() {
-		stream := false
-		if req.Stream != nil {
-			stream = *req.Stream
-		}
 		err = wrapper.LlamaGenerate(id, fmt.Sprintf("{\"prompt\":\"%s\",\"stream\":%v}", req.Prompt, stream))
 		if err != nil {
 			log.Warn(err.Error())
@@ -77,7 +77,7 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		}
 	}()
 
-	if req.Stream == nil && !*req.Stream {
+	if !stream {
 		content := ""
 		for rr := range ch {
 			str, ok := rr.(string)

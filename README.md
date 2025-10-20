@@ -36,6 +36,8 @@ Or enable interactive mode to run:
 
 ```bash
 ~ ./llama --model=qwen2.5-0.5b-q8_0.gguf serve
+or
+~ ./llama --model=gpt-oss-20b-mxfp4.gguf --jinja serve
 ```
 
 * Support REST API:
