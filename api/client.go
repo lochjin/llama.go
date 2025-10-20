@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"strings"
 )
 
 // Client encapsulates client state for interacting with the llama.go
@@ -152,13 +153,30 @@ func (c *Client) stream(ctx context.Context, method, path string, data any, fn f
 	// increase the buffer size to avoid running out of space
 	scanBuf := make([]byte, 0, maxBufferSize)
 	scanner.Buffer(scanBuf, maxBufferSize)
-	for scanner.Scan() {
+
+	prefix_data := "data: "
+	tag_done := "[DONE]"
+	finish := false
+	for scanner.Scan() && !finish {
 		var errorResponse struct {
 			Error     string `json:"error,omitempty"`
 			SigninURL string `json:"signin_url,omitempty"`
 		}
 
 		bts := scanner.Bytes()
+		if strings.HasPrefix(string(bts), prefix_data) {
+			bts = []byte(strings.TrimPrefix(string(bts), prefix_data))
+		}
+
+		if strings.Contains(string(bts), tag_done) {
+			bts = []byte(strings.Trim(string(bts), tag_done))
+			finish = true
+		}
+
+		if len(bts) <= 0 {
+			continue
+		}
+
 		if err := json.Unmarshal(bts, &errorResponse); err != nil {
 			return fmt.Errorf("unmarshal: %w", err)
 		}

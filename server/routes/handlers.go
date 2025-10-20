@@ -28,7 +28,9 @@ func (s *API) HealthHandler(c *gin.Context) {
 }
 
 func (s *API) PullHandler(c *gin.Context) {
-
+	c.Header("Content-Type", "application/json")
+	var latest api.ProgressResponse
+	c.JSON(http.StatusOK, latest)
 }
 
 func (s *API) PsHandler(c *gin.Context) {
@@ -370,19 +372,17 @@ func (s *API) ShowHandler(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	if req.Model != "" {
-		// noop
-	} else if req.Name != "" {
-		req.Model = req.Name
-	} else {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "model is required"})
-		return
+	showModel := s.cfg.Model
+	if len(req.Model) > 0 {
+		showModel = req.Model
 	}
 	infos := s.cfg.GetModelFileInfos()
 
+	capabilities := []model.Capability{}
+	capabilities = append(capabilities, model.CapabilityThinking)
+
 	for _, info := range infos {
-		if info.Name() != req.Model {
+		if info.Name() != showModel {
 			continue
 		}
 		resp := &api.ShowResponse{
@@ -390,12 +390,13 @@ func (s *API) ShowHandler(c *gin.Context) {
 			Details: api.ModelDetails{
 				Format: model.EXT[1:],
 			},
-			ModifiedAt: info.ModTime(),
+			ModifiedAt:   info.ModTime(),
+			Capabilities: capabilities,
 		}
 		c.JSON(http.StatusOK, resp)
 		return
 	}
-	c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+	c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", showModel)})
 }
 
 func (s *API) PropsHandler(c *gin.Context) {

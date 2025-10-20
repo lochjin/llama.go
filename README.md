@@ -21,17 +21,6 @@ or
 ~ export LLAMAGO_MODEL_DIR=<your_model_files_directory>
 ```
 
-### Local startup
-
-```bash
-~ ./llama --model=qwen2.5-0.5b-q8_0.gguf --prompt=天空为什么是蓝的 run
-```
-Or enable interactive mode to run:
-```bash
-~ ./llama --model=qwen2.5-0.5b-q8_0.gguf run
-```
-
-
 ### As the startup of the server
 
 ```bash
@@ -39,6 +28,19 @@ Or enable interactive mode to run:
 or
 ~ ./llama --model=gpt-oss-20b-mxfp4.gguf --jinja serve
 ```
+
+### client:
+
+```bash
+~ ./llama run --prompt=天空为什么是蓝的
+```
+Or enable interactive mode to run:
+```bash
+~ ./llama run
+```
+
+
+
 
 * Support REST API:
 ```bash

@@ -463,7 +463,7 @@ type EmbeddingResponse struct {
 
 // ShowRequest is the request passed to [Client.Show].
 type ShowRequest struct {
-	Model  string `json:"model"`
+	Model  string `json:"model,omitempty"`
 	System string `json:"system"`
 
 	// Template is deprecated
@@ -471,9 +471,6 @@ type ShowRequest struct {
 	Verbose  bool   `json:"verbose"`
 
 	Options map[string]any `json:"options"`
-
-	// Deprecated: set the model name with Model instead
-	Name string `json:"name"`
 }
 
 // ShowResponse is the response returned from [Client.Show].
@@ -555,6 +552,13 @@ type TokenResponse struct {
 	Token string `json:"token"`
 }
 
+type Choice struct {
+	Text         string      `json:"text"`
+	Index        int         `json:"index"`
+	Logprobs     interface{} `json:"logprobs"`
+	FinishReason string      `json:"finish_reason"`
+}
+
 // GenerateResponse is the response passed into [GenerateResponseFunc].
 type GenerateResponse struct {
 	// Model is the model name that generated the response.
@@ -567,20 +571,14 @@ type GenerateResponse struct {
 	RemoteHost string `json:"remote_host,omitempty"`
 
 	// CreatedAt is the timestamp of the response.
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt int `json:"created"`
 
 	// Response is the textual response itself.
-	Response string `json:"response"`
+	Choices []Choice `json:"choices"`
 
 	// Thinking contains the text that was inside thinking tags in the
 	// original model output when ChatRequest.Think is enabled.
 	Thinking string `json:"thinking,omitempty"`
-
-	// Done specifies if the response is complete.
-	Done bool `json:"done"`
-
-	// DoneReason is the reason the model stopped generating text.
-	DoneReason string `json:"done_reason,omitempty"`
 
 	// Context is an encoding of the conversation used in this response; this
 	// can be sent in the next request to keep a conversational memory.
@@ -591,6 +589,31 @@ type GenerateResponse struct {
 	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
 
 	DebugInfo *DebugInfo `json:"_debug_info,omitempty"`
+
+	SystemFingerprint string `json:"system_fingerprint,omitempty"`
+	ID                string `json:"id,omitempty"`
+	Object            string `json:"object,omitempty"`
+}
+
+func (gr *GenerateResponse) Done() bool {
+	if len(gr.Choices) > 0 {
+		for _, c := range gr.Choices {
+			if len(c.FinishReason) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (gr *GenerateResponse) Content() string {
+	result := ""
+	if len(gr.Choices) > 0 {
+		for _, c := range gr.Choices {
+			result += c.Text
+		}
+	}
+	return result
 }
 
 // ModelDetails provides details about a model.

@@ -308,9 +308,9 @@ func generate(pctx *cli.Context, opts runOptions) error {
 
 	fn := func(response api.GenerateResponse) error {
 		latest = response
-		content := response.Response
+		content := response.Content()
 
-		if response.Response != "" || !opts.HideThinking {
+		if content != "" || !opts.HideThinking {
 			p.StopAndClear()
 		}
 
@@ -382,7 +382,7 @@ func generate(pctx *cli.Context, opts runOptions) error {
 		fmt.Println()
 	}
 
-	if !latest.Done {
+	if !latest.Done() {
 		return nil
 	}
 
