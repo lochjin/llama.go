@@ -249,7 +249,7 @@ func ListMiddleware() gin.HandlerFunc {
 func RetrieveMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var b bytes.Buffer
-		if err := json.NewEncoder(&b).Encode(api.ShowRequest{Name: c.Param("model")}); err != nil {
+		if err := json.NewEncoder(&b).Encode(api.ShowRequest{Model: c.Param("model")}); err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, NewError(http.StatusInternalServerError, err.Error()))
 			return
 		}
