@@ -28,6 +28,56 @@ func (s *API) HealthHandler(c *gin.Context) {
 }
 
 func (s *API) PullHandler(c *gin.Context) {
+	/*var req api.PullRequest
+	err := c.ShouldBindJSON(&req)
+	switch {
+	case errors.Is(err, io.EOF):
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "missing request body"})
+		return
+	case err != nil:
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	name := model.ParseName(cmp.Or(req.Model))
+	if !name.IsValid() {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid model name"})
+		return
+	}
+
+	name, err = getExistingName(name)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ch := make(chan any)
+	go func() {
+		defer close(ch)
+		fn := func(r api.ProgressResponse) {
+			ch <- r
+		}
+
+		regOpts := &registryOptions{
+			Insecure: req.Insecure,
+		}
+
+		ctx, cancel := context.WithCancel(c.Request.Context())
+		defer cancel()
+
+		if err := PullModel(ctx, name.DisplayShortest(), regOpts, fn); err != nil {
+			ch <- gin.H{"error": err.Error()}
+		}
+	}()
+
+	if req.Stream != nil && !*req.Stream {
+		waitForStream(c, ch)
+		return
+	}
+
+	streamResponse(c, ch
+	*/
+
 	c.Header("Content-Type", "application/json")
 	var latest api.ProgressResponse
 	c.JSON(http.StatusOK, latest)

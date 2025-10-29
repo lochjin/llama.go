@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Qitmeer/llama.go/api"
+	"github.com/Qitmeer/llama.go/app/pull"
 	"github.com/Qitmeer/llama.go/app/run"
 	"github.com/Qitmeer/llama.go/config"
 	"github.com/Qitmeer/llama.go/server"
@@ -21,7 +22,7 @@ func commands() []*cli.Command {
 	cmds = append(cmds, versionCmd())
 	cmds = append(cmds, serveCmd())
 	cmds = append(cmds, runCmd())
-	cmds = append(cmds, downloadCmd())
+	cmds = append(cmds, pullCmd())
 	cmds = append(cmds, embeddingCmd())
 	cmds = append(cmds, whisperCmd())
 	return cmds
@@ -63,8 +64,9 @@ func runCmd() *cli.Command {
 		Name:        "run",
 		Aliases:     []string{"r"},
 		Category:    "llama",
-		Usage:       "llama.go run",
-		Description: "llama.go run",
+		Usage:       "llama.go run [prompt]",
+		Description: "llama.go run - Run llama with optional prompt as positional argument",
+		ArgsUsage:   "[prompt]",
 		Flags:       run.AppFlags,
 		Before:      OnBefore,
 		Action:      run.RunHandler,
@@ -117,17 +119,16 @@ func serveCmd() *cli.Command {
 	}
 }
 
-func downloadCmd() *cli.Command {
+func pullCmd() *cli.Command {
 	return &cli.Command{
-		Name:        "download",
-		Aliases:     []string{"d"},
+		Name:        "pull",
+		Aliases:     []string{"pu"},
 		Category:    "llama",
-		Usage:       "Download model",
-		Description: "Download model",
+		Usage:       "llama.go pull MODEL",
+		Description: "Download a model from a registry",
+		ArgsUsage:   "MODEL",
 		Before:      OnBefore,
-		Action: func(ctx *cli.Context) error {
-			return nil
-		},
+		Action:      pull.PullHandler,
 	}
 }
 
