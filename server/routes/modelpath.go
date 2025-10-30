@@ -1,8 +1,9 @@
-package config
+package routes
 
 import (
 	"errors"
 	"fmt"
+	"github.com/Qitmeer/llama.go/config"
 	"github.com/Qitmeer/llama.go/model"
 	"io/fs"
 	"net/url"
@@ -21,7 +22,7 @@ type ModelPath struct {
 }
 
 const (
-	DefaultRegistry       = "registry.llama.go.ai"
+	DefaultRegistry       = "registry.llamago.ai"
 	DefaultNamespace      = "library"
 	DefaultTag            = "latest"
 	DefaultProtocolScheme = "https"
@@ -101,7 +102,7 @@ func (mp ModelPath) GetManifestPath() (string, error) {
 	if !name.IsValid() {
 		return "", fs.ErrNotExist
 	}
-	return filepath.Join(Conf.ModelDir, "manifests", name.Filepath()), nil
+	return filepath.Join(config.Conf.ModelDir, "manifests", name.Filepath()), nil
 }
 
 func (mp ModelPath) BaseURL() *url.URL {
@@ -112,7 +113,7 @@ func (mp ModelPath) BaseURL() *url.URL {
 }
 
 func GetManifestPath() (string, error) {
-	path := filepath.Join(Conf.ModelDir, "manifests")
+	path := filepath.Join(config.Conf.ModelDir, "manifests")
 	if err := os.MkdirAll(path, 0o755); err != nil {
 		return "", fmt.Errorf("%w: ensure path elements are traversable", err)
 	}
@@ -130,7 +131,7 @@ func GetBlobsPath(digest string) (string, error) {
 	}
 
 	digest = strings.ReplaceAll(digest, ":", "-")
-	path := filepath.Join(Conf.ModelDir, "blobs", digest)
+	path := filepath.Join(config.Conf.ModelDir, "blobs", digest)
 	dirPath := filepath.Dir(path)
 	if digest == "" {
 		dirPath = path

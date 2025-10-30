@@ -1,6 +1,7 @@
-package config
+package routes
 
 import (
+	"github.com/Qitmeer/llama.go/config"
 	"path/filepath"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 
 func TestGetBlobsPath(t *testing.T) {
 	// GetBlobsPath expects an actual directory to exist
-	tempDir := Conf.ModelDir
+	tempDir := config.Conf.ModelDir
 
 	tests := []struct {
 		name     string

@@ -5,7 +5,6 @@ package config
 import (
 	"fmt"
 	"github.com/Qitmeer/llama.go/common"
-	"github.com/Qitmeer/llama.go/model"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 	"math"
@@ -52,6 +51,8 @@ const (
 	DefaultContextSize = 4096
 
 	DefaultNGpuLayers = -1
+
+	EXT = ".gguf" // TODO:We will soon release our better format
 )
 
 var (
@@ -229,6 +230,15 @@ var (
 		Destination: &Conf.ChatTemplateKwargs,
 	}
 
+	NoPrune = &cli.BoolFlag{
+		Name:        "noprune",
+		Aliases:     []string{"np"},
+		Usage:       "Do not prune model blobs on startup",
+		Value:       false,
+		EnvVars:     []string{"LLAMAGO_NOPRUNE"},
+		Destination: &Conf.NoPrune,
+	}
+
 	AppFlags = []cli.Flag{
 		LogLevel,
 		Model,
@@ -251,6 +261,7 @@ var (
 		ChatTemplate,
 		ChatTemplateFile,
 		ChatTemplateKwargs,
+		NoPrune,
 	}
 )
 
@@ -277,6 +288,7 @@ type Config struct {
 	ChatTemplate       string
 	ChatTemplateFile   string
 	ChatTemplateKwargs string
+	NoPrune            bool
 }
 
 func (c *Config) Load() error {
@@ -292,7 +304,7 @@ func (c *Config) ModelPath() string {
 	if len(c.Model) <= 0 {
 		return ""
 	}
-	if !strings.Contains(c.Model, model.EXT) {
+	if !strings.Contains(c.Model, EXT) {
 		return ""
 	}
 	if common.IsFilePath(c.Model) {
@@ -329,7 +341,7 @@ func (c *Config) GetModelFileInfos() []os.FileInfo {
 				if entry.IsDir() {
 					continue
 				}
-				if filepath.Ext(entry.Name()) != model.EXT {
+				if filepath.Ext(entry.Name()) != EXT {
 					continue
 				}
 				info, err := entry.Info()

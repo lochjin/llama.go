@@ -3,10 +3,12 @@ package routes
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/Qitmeer/llama.go/api"
+	"github.com/Qitmeer/llama.go/config"
 	"github.com/Qitmeer/llama.go/model"
 	"github.com/Qitmeer/llama.go/version"
 	"github.com/Qitmeer/llama.go/wrapper"
@@ -28,7 +30,7 @@ func (s *API) HealthHandler(c *gin.Context) {
 }
 
 func (s *API) PullHandler(c *gin.Context) {
-	/*var req api.PullRequest
+	var req api.PullRequest
 	err := c.ShouldBindJSON(&req)
 	switch {
 	case errors.Is(err, io.EOF):
@@ -58,9 +60,7 @@ func (s *API) PullHandler(c *gin.Context) {
 			ch <- r
 		}
 
-		regOpts := &registryOptions{
-			Insecure: req.Insecure,
-		}
+		regOpts := &RegistryOptions{}
 
 		ctx, cancel := context.WithCancel(c.Request.Context())
 		defer cancel()
@@ -75,8 +75,7 @@ func (s *API) PullHandler(c *gin.Context) {
 		return
 	}
 
-	streamResponse(c, ch
-	*/
+	streamHandler(c, ch)
 
 	c.Header("Content-Type", "application/json")
 	var latest api.ProgressResponse
@@ -210,74 +209,6 @@ func (s *API) ChatHandler(c *gin.Context) {
 	streamHandler(c, ch)
 }
 
-func streamHandler(c *gin.Context, ch chan any) {
-	accept := c.GetHeader("Accept")
-	if accept == "application/x-ndjson" {
-		// NDJSON
-		c.Header("Content-Type", "application/x-ndjson")
-
-		c.Stream(func(w io.Writer) bool {
-			val, ok := <-ch
-			if !ok {
-				return false
-			}
-
-			bts, ok := val.(string)
-			if !ok {
-				log.Warn("NDJSON marshal error", "error", val)
-				return false
-			}
-			bts += "\n"
-			if _, err := w.Write([]byte(bts)); err != nil {
-				log.Warn("NDJSON write error:", err)
-				return false
-			}
-
-			return true
-		})
-	} else if accept == "text/event-stream" {
-		// SSE
-		c.Header("Content-Type", "text/event-stream")
-		c.Header("Cache-Control", "no-cache")
-		c.Header("Connection", "keep-alive")
-		c.Header("Transfer-Encoding", "chunked")
-
-		c.Stream(func(w io.Writer) bool {
-			val, ok := <-ch
-			if !ok {
-				return false
-			}
-			bts, ok := val.(string)
-			if !ok {
-				log.Warn("SSE marshal error", "error", val)
-				return false
-			}
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", bts); err != nil {
-				log.Warn("SSE write error:", err)
-				return false
-			}
-			return true
-		})
-	} else {
-		c.Stream(func(w io.Writer) bool {
-			val, ok := <-ch
-			if !ok {
-				return false
-			}
-			bts, ok := val.(string)
-			if !ok {
-				log.Warn("default marshal error", "error", val)
-				return false
-			}
-			if _, err := w.Write([]byte(bts)); err != nil {
-				log.Warn("default write error:", err)
-				return false
-			}
-			return true
-		})
-	}
-}
-
 func (s *API) EmbedHandler(c *gin.Context) {
 	checkpointStart := time.Now()
 	var req api.EmbedRequest
@@ -399,7 +330,7 @@ func (s *API) ListHandler(c *gin.Context) {
 			Size:       info.Size(),
 			ModifiedAt: info.ModTime(),
 			Details: api.ModelDetails{
-				Format: model.EXT[1:],
+				Format: config.EXT[1:],
 			},
 		})
 	}
@@ -438,7 +369,7 @@ func (s *API) ShowHandler(c *gin.Context) {
 		resp := &api.ShowResponse{
 			Modelfile: info.Name(),
 			Details: api.ModelDetails{
-				Format: model.EXT[1:],
+				Format: config.EXT[1:],
 			},
 			ModifiedAt:   info.ModTime(),
 			Capabilities: capabilities,

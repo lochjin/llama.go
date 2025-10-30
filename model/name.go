@@ -33,7 +33,7 @@ func Unqualified(n Name) error {
 const MissingPart = "!MISSING!"
 
 const (
-	defaultHost      = "registry.llama.go.ai"
+	defaultHost      = "registry.llamago.ai"
 	defaultNamespace = "library"
 	defaultTag       = "latest"
 )
