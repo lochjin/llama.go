@@ -8,6 +8,7 @@ import "C"
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"unsafe"
 
@@ -27,8 +28,7 @@ func LlamaStartInteractive(cfg *config.Config) error {
 	ip := C.CString(cfg.Prompt)
 	defer C.free(unsafe.Pointer(ip))
 
-	cfgArgs := fmt.Sprintf("llama -i --model %s --ctx-size %d --n-gpu-layers %d --n-predict %d --seed %d",
-		cfg.ModelPath(), cfg.CtxSize, cfg.NGpuLayers, cfg.NPredict, cfg.Seed)
+	cfgArgs := assemblyArgs(cfg)
 	ca := C.CString(cfgArgs)
 	defer C.free(unsafe.Pointer(ca))
 
@@ -80,12 +80,7 @@ func LlamaStart(cfg *config.Config) error {
 	if !cfg.HasModel() {
 		return fmt.Errorf("No model")
 	}
-	jinja := ""
-	if cfg.Jinja {
-		jinja = " --jinja"
-	}
-	cfgArgs := fmt.Sprintf("llama --model %s --ctx-size %d --n-gpu-layers %d --n-predict %d --seed %d%s",
-		cfg.ModelPath(), cfg.CtxSize, cfg.NGpuLayers, cfg.NPredict, cfg.Seed, jinja)
+	cfgArgs := assemblyArgs(cfg)
 	ca := C.CString(cfgArgs)
 	defer C.free(unsafe.Pointer(ca))
 
@@ -104,18 +99,14 @@ func LlamaStop() error {
 	return nil
 }
 
-func LlamaEmbedding(cfg *config.Config, model string, prompts string, embdOutputFormat string) (string, error) {
-	if len(model) <= 0 {
-		return "", fmt.Errorf("No model")
-	}
+func LlamaEmbedding(cfg *config.Config, prompts string, embdOutputFormat string) (string, error) {
 	if len(prompts) <= 0 {
 		return "", fmt.Errorf("No prompt")
 	}
 	ip := C.CString(prompts)
 	defer C.free(unsafe.Pointer(ip))
 
-	cfgArgs := fmt.Sprintf("llama --model %s --ctx-size %d --n-gpu-layers %d --n-predict %d --seed %d --embd-normalize %d --batch-size %d --ubatch-size %d",
-		model, cfg.CtxSize, cfg.NGpuLayers, cfg.NPredict, cfg.Seed, cfg.EmbdNormalize, cfg.BatchSize, cfg.UBatchSize)
+	cfgArgs := assemblyArgs(cfg)
 	if len(cfg.Pooling) > 0 {
 		cfgArgs = fmt.Sprintf("%s --pooling %s", cfgArgs, cfg.Pooling)
 	}
@@ -211,4 +202,48 @@ func GetProps() (string, error) {
 	content := C.GoString(ret.content)
 	C.free(unsafe.Pointer(ret.content))
 	return content, nil
+}
+
+func assemblyArgs(cfg *config.Config) string {
+	cfgArgs := "llama"
+	if len(cfg.ModelPath()) > 0 {
+		cfgArgs = fmt.Sprintf("%s --model %s", cfgArgs, cfg.ModelPath())
+	}
+	if cfg.CtxSize != config.DefaultContextSize {
+		cfgArgs = fmt.Sprintf("%s --ctx-size %d", cfgArgs, cfg.CtxSize)
+	}
+	if cfg.NGpuLayers != config.DefaultNGpuLayers {
+		cfgArgs = fmt.Sprintf("%s --n-gpu-layers %d", cfgArgs, cfg.NGpuLayers)
+	}
+	if cfg.Seed != math.MaxUint32 {
+		cfgArgs = fmt.Sprintf("%s --seed %d", cfgArgs, cfg.Seed)
+	}
+	if cfg.EmbdNormalize != 2 {
+		cfgArgs = fmt.Sprintf("%s --embd-normalize %d", cfgArgs, cfg.EmbdNormalize)
+	}
+	if cfg.BatchSize != 2048 {
+		cfgArgs = fmt.Sprintf("%s --batch-size %d", cfgArgs, cfg.BatchSize)
+	}
+	if cfg.UBatchSize != 512 {
+		cfgArgs = fmt.Sprintf("%s --ubatch-size %d", cfgArgs, cfg.UBatchSize)
+	}
+	if cfg.Jinja {
+		cfgArgs = fmt.Sprintf("%s --jinja", cfgArgs)
+	}
+	if len(cfg.ChatTemplate) > 0 {
+		cfgArgs = fmt.Sprintf("%s --chat-template %s", cfgArgs, cfg.ChatTemplate)
+	}
+	if len(cfg.ChatTemplateFile) > 0 {
+		cfgArgs = fmt.Sprintf("%s --chat-template-file %s", cfgArgs, cfg.ChatTemplateFile)
+	}
+	if len(cfg.ChatTemplateKwargs) > 0 {
+		cfgArgs = fmt.Sprintf("%s --chat-template-kwargs %s", cfgArgs, cfg.ChatTemplateKwargs)
+	}
+	if len(cfg.Pooling) > 0 {
+		cfgArgs = fmt.Sprintf("%s --pooling %s", cfgArgs, cfg.Pooling)
+	}
+	if len(cfg.EmbdSeparator) > 0 {
+		cfgArgs = fmt.Sprintf("%s --embd-separator %s", cfgArgs, cfg.EmbdSeparator)
+	}
+	return cfgArgs
 }

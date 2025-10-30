@@ -50,6 +50,8 @@ const (
 	DefaultPort        = "8081"
 	DefaultModelDir    = "./data/models"
 	DefaultContextSize = 4096
+
+	DefaultNGpuLayers = -1
 )
 
 var (
@@ -103,7 +105,7 @@ var (
 		Name:        "n-gpu-layers",
 		Aliases:     []string{"ngl"},
 		Usage:       "When compiled with GPU support, this option allows offloading some layers to the GPU for computation. Generally results in increased performance.",
-		Value:       -1,
+		Value:       DefaultNGpuLayers,
 		Destination: &Conf.NGpuLayers,
 	}
 
@@ -203,6 +205,30 @@ var (
 		Destination: &Conf.Jinja,
 	}
 
+	ChatTemplate = &cli.StringFlag{
+		Name:        "chat-template",
+		Aliases:     []string{"ct"},
+		Usage:       "set custom jinja chat template (default: template taken from model's metadata)",
+		EnvVars:     []string{"LLAMAGO_JINJA_TEMPLATE"},
+		Destination: &Conf.ChatTemplate,
+	}
+
+	ChatTemplateFile = &cli.StringFlag{
+		Name:        "chat-template-file",
+		Aliases:     []string{"ctf"},
+		Usage:       "set custom jinja chat template file (default: template taken from model's metadata)",
+		EnvVars:     []string{"LLAMAGO_JINJA_TEMPLATE_FILE"},
+		Destination: &Conf.ChatTemplateFile,
+	}
+
+	ChatTemplateKwargs = &cli.StringFlag{
+		Name:        "chat-template-kwargs",
+		Aliases:     []string{"ctk"},
+		Usage:       "sets additional params for the json template parser",
+		EnvVars:     []string{"LLAMAGO_CHAT_TEMPLATE_KWARGS"},
+		Destination: &Conf.ChatTemplateKwargs,
+	}
+
 	AppFlags = []cli.Flag{
 		LogLevel,
 		Model,
@@ -222,6 +248,9 @@ var (
 		Host,
 		Origins,
 		Jinja,
+		ChatTemplate,
+		ChatTemplateFile,
+		ChatTemplateKwargs,
 	}
 )
 
@@ -230,21 +259,24 @@ type Config struct {
 	Model    string
 	ModelDir string
 
-	CtxSize          int
-	Prompt           string
-	NGpuLayers       int
-	NPredict         int
-	Seed             uint
-	Pooling          string
-	EmbdNormalize    int
-	EmbdOutputFormat string
-	EmbdSeparator    string
-	BatchSize        int
-	UBatchSize       int
-	OutputFile       string
-	Host             string
-	Origins          string
-	Jinja            bool
+	CtxSize            int
+	Prompt             string
+	NGpuLayers         int
+	NPredict           int
+	Seed               uint
+	Pooling            string
+	EmbdNormalize      int
+	EmbdOutputFormat   string
+	EmbdSeparator      string
+	BatchSize          int
+	UBatchSize         int
+	OutputFile         string
+	Host               string
+	Origins            string
+	Jinja              bool
+	ChatTemplate       string
+	ChatTemplateFile   string
+	ChatTemplateKwargs string
 }
 
 func (c *Config) Load() error {

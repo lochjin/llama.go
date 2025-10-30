@@ -143,7 +143,7 @@ func embeddingCmd() *cli.Command {
 		Action: func(ctx *cli.Context) error {
 			cfg := config.Conf
 			log.Info("Start embedding")
-			ret, err := wrapper.LlamaEmbedding(cfg, cfg.ModelPath(), cfg.Prompt, cfg.EmbdOutputFormat)
+			ret, err := wrapper.LlamaEmbedding(cfg, cfg.Prompt, cfg.EmbdOutputFormat)
 			if err != nil {
 				return err
 			}
