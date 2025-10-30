@@ -203,7 +203,24 @@ func RunHandler(ctx *cli.Context) error {
 		opts.KeepAlive = &api.Duration{Duration: d}
 	}
 
-	prompts := []string{Conf.Prompt}
+	// Handle positional arguments (prompt as first argument)
+	var promptFromArgs string
+	if ctx.Args().Len() > 0 {
+		promptFromArgs = strings.Join(ctx.Args().Slice(), " ")
+	}
+	
+	prompts := []string{}
+	
+	// Add prompt from positional arguments if provided
+	if promptFromArgs != "" {
+		prompts = append(prompts, promptFromArgs)
+	}
+	
+	// Add prompt from --prompt flag if provided (for backward compatibility)
+	if Conf.Prompt != "" {
+		prompts = append(prompts, Conf.Prompt)
+	}
+	
 	// prepend stdin to the prompt if provided
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		in, err := io.ReadAll(os.Stdin)
@@ -216,6 +233,7 @@ func RunHandler(ctx *cli.Context) error {
 		opts.WordWrap = false
 		interactive = false
 	}
+	
 	opts.Prompt = strings.Join(prompts, " ")
 	if len(prompts) > 0 {
 		interactive = false
