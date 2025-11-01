@@ -2,12 +2,13 @@ package routes
 
 import (
 	"encoding/json"
-	"github.com/Qitmeer/llama.go/config"
-	"github.com/Qitmeer/llama.go/model"
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
+
+	"github.com/Qitmeer/llama.go/config"
+	"github.com/Qitmeer/llama.go/model"
 )
 
 func createManifest(t *testing.T, path, name string) {
@@ -105,6 +106,20 @@ func TestManifests(t *testing.T) {
 
 	for n, wants := range cases {
 		t.Run(n, func(t *testing.T) {
+			// Cleanup after each subtest
+			t.Cleanup(func() {
+				manifestsDir := filepath.Join(config.Conf.ModelDir, "manifests")
+				blobsDir := filepath.Join(config.Conf.ModelDir, "blobs")
+
+				if err := os.RemoveAll(manifestsDir); err != nil && !os.IsNotExist(err) {
+					t.Logf("failed to cleanup manifests directory: %v", err)
+				}
+
+				if err := os.RemoveAll(blobsDir); err != nil && !os.IsNotExist(err) {
+					t.Logf("failed to cleanup blobs directory: %v", err)
+				}
+			})
+
 			for _, p := range wants.ps {
 				createManifest(t, config.Conf.ModelDir, p)
 			}
