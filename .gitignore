@@ -5,3 +5,6 @@ bin
 build
 build/bin
 cmake-build-*
+
+# Claude Code configuration
+.claude/settings.local.json
