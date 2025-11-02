@@ -11,21 +11,20 @@ import (
 )
 
 func TestWriteGGUF(t *testing.T) {
-	b := bytes.NewBuffer(make([]byte, 2*3))
 	for i := 0; i < 8; i++ {
 		t.Run("shuffle", func(t *testing.T) {
 			t.Parallel()
 
 			ts := []*Tensor{
-				{Name: "token_embd.weight", Shape: []uint64{2, 3}, WriterTo: b},
-				{Name: "blk.0.ffn_norm.weight", Shape: []uint64{2, 3}, WriterTo: b},
-				{Name: "blk.0.attn_norm.weight", Shape: []uint64{2, 3}, WriterTo: b},
-				{Name: "blk.1.ffn_up.weight", Shape: []uint64{2, 3}, WriterTo: b},
-				{Name: "blk.2.ffn_norm.weight", Shape: []uint64{2, 3}, WriterTo: b},
-				{Name: "blk.1.ffn_down.weight", Shape: []uint64{2, 3}, WriterTo: b},
-				{Name: "blk.0.attn_k.weight", Shape: []uint64{2, 3}, WriterTo: b},
-				{Name: "output_norm.weight", Shape: []uint64{3, 2}, WriterTo: b},
-				{Name: "output.weight", Shape: []uint64{3, 2}, WriterTo: b},
+				{Name: "token_embd.weight", Shape: []uint64{2, 3}, WriterTo: bytes.NewBuffer(make([]byte, 2*3))},
+				{Name: "blk.0.ffn_norm.weight", Shape: []uint64{2, 3}, WriterTo: bytes.NewBuffer(make([]byte, 2*3))},
+				{Name: "blk.0.attn_norm.weight", Shape: []uint64{2, 3}, WriterTo: bytes.NewBuffer(make([]byte, 2*3))},
+				{Name: "blk.1.ffn_up.weight", Shape: []uint64{2, 3}, WriterTo: bytes.NewBuffer(make([]byte, 2*3))},
+				{Name: "blk.2.ffn_norm.weight", Shape: []uint64{2, 3}, WriterTo: bytes.NewBuffer(make([]byte, 2*3))},
+				{Name: "blk.1.ffn_down.weight", Shape: []uint64{2, 3}, WriterTo: bytes.NewBuffer(make([]byte, 2*3))},
+				{Name: "blk.0.attn_k.weight", Shape: []uint64{2, 3}, WriterTo: bytes.NewBuffer(make([]byte, 2*3))},
+				{Name: "output_norm.weight", Shape: []uint64{3, 2}, WriterTo: bytes.NewBuffer(make([]byte, 3*2))},
+				{Name: "output.weight", Shape: []uint64{3, 2}, WriterTo: bytes.NewBuffer(make([]byte, 3*2))},
 			}
 
 			rand.Shuffle(len(ts), func(i, j int) {

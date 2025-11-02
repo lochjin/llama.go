@@ -28,7 +28,7 @@ bool Scheduler::start(const std::vector<std::string>& args) {
     }
     if (params.model_alias.empty() && !params.model.path.empty()) {
         std::filesystem::path fp(params.model.path);
-        params.model_alias=fp.stem();
+        params.model_alias=fp.stem().string();
     }
 
     common_init();
