@@ -41,8 +41,13 @@ jobs:
         skip-cache: true
         args: --enable-only=govet --tests=false ./...
 
-    - name: Run tests
+    - name: Run tests (Ubuntu with coverage)
+      if: matrix.os == 'ubuntu-latest'
       run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+    - name: Run tests (macOS and Windows)
+      if: matrix.os != 'ubuntu-latest'
+      run: go test -v ./...
 
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest'
