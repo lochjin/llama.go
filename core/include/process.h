@@ -27,6 +27,7 @@ Result whisper_gen(const char * model,const char * input);
 
 CommonParams get_common_params();
 Result get_props();
+Result get_slots();
 
 #ifdef __cplusplus
 }

@@ -400,5 +400,10 @@ func (s *API) PropsChangeHandler(c *gin.Context) {
 }
 
 func (s *API) SlotsHandler(c *gin.Context) {
-	c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "This server does not support slots endpoint. Start it with `--slots`"})
+	jsonStr, err := wrapper.GetSlots()
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Data(http.StatusOK, "application/json; charset=utf-8", []byte(jsonStr))
 }

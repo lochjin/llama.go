@@ -124,3 +124,18 @@ Result get_props() {
 
     return {true,arr};
 }
+
+Result get_slots() {
+    if (!Scheduler::instance().is_running()) {
+        return {false};
+    }
+    std::string result = Scheduler::instance().get_slots();
+    if (result.empty()) {
+        return {false};
+    }
+    char* arr = new char[result.size() + 1];
+    std::copy(result.begin(), result.end(), arr);
+    arr[result.size()] = '\0';
+
+    return {true,arr};
+}

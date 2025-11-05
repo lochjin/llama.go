@@ -203,6 +203,16 @@ func GetProps() (string, error) {
 	C.free(unsafe.Pointer(ret.content))
 	return content, nil
 }
+func GetSlots() (string, error) {
+	ret := C.get_slots()
+	if !bool(ret.ret) {
+		return "", fmt.Errorf("Llama run error")
+	}
+
+	content := C.GoString(ret.content)
+	C.free(unsafe.Pointer(ret.content))
+	return content, nil
+}
 
 func assemblyArgs(cfg *config.Config) string {
 	cfgArgs := "llama"
