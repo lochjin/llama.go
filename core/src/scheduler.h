@@ -46,4 +46,5 @@ public:
     void res_ok(Response & res, const json & data);
     common_params *get_common_params();
     std::string get_props();
+    std::string get_slots(bool fail_on_no_slot= false);
 };

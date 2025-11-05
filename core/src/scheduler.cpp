@@ -446,3 +446,41 @@ std::string Scheduler::get_props() {
     }
     return safe_json_to_str(data);
 }
+
+std::string Scheduler::get_slots(bool fail_on_no_slot) {
+    if (!ctx_server.params_base.endpoint_slots) {
+        return safe_json_to_str(format_error_response("This server does not support slots endpoint. Start it with `--slots`", ERROR_TYPE_NOT_SUPPORTED));
+    }
+
+    // request slots data using task queue
+    int task_id = ctx_server.queue_tasks.get_new_id();
+    {
+        server_task task(SERVER_TASK_TYPE_METRICS);
+        task.id = task_id;
+        ctx_server.queue_results.add_waiting_task_id(task_id);
+        ctx_server.queue_tasks.post(std::move(task), true); // high-priority task
+    }
+
+    // get the result
+    server_task_result_ptr result = ctx_server.queue_results.recv(task_id);
+    ctx_server.queue_results.remove_waiting_task_id(task_id);
+
+    if (result->is_error()) {
+        json final_response {{"error", safe_json_to_str(result->to_json())}};
+        return safe_json_to_str(final_response);
+    }
+
+    // TODO: get rid of this dynamic_cast
+    auto res_task = dynamic_cast<server_task_result_metrics*>(result.get());
+    GGML_ASSERT(res_task != nullptr);
+
+    // optionally return "fail_on_no_slot" error
+    if (fail_on_no_slot) {
+        if (res_task->n_idle_slots == 0) {
+            json final_response {{"error", safe_json_to_str(format_error_response("no slot available", ERROR_TYPE_UNAVAILABLE))}};
+            return safe_json_to_str(final_response);
+        }
+    }
+
+    return safe_json_to_str(res_task->slots_data);
+}

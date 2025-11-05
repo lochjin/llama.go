@@ -59,6 +59,7 @@ enum server_task_type {
     SERVER_TASK_TYPE_INFILL,
     SERVER_TASK_TYPE_CANCEL,
     SERVER_TASK_TYPE_NEXT_RESPONSE,
+    SERVER_TASK_TYPE_METRICS,
     SERVER_TASK_TYPE_SLOT_SAVE,
     SERVER_TASK_TYPE_SLOT_RESTORE,
     SERVER_TASK_TYPE_SLOT_ERASE,
@@ -277,6 +278,9 @@ struct server_task {
         std::string filepath;
     };
     slot_action slot_action;
+
+    // used by SERVER_TASK_TYPE_METRICS
+    bool metrics_reset_bucket = false;
 
     // used by SERVER_TASK_TYPE_SET_LORA
     std::vector<common_adapter_lora_info> set_lora;
@@ -3349,6 +3353,54 @@ struct server_context {
             case SERVER_TASK_TYPE_NEXT_RESPONSE:
             {
                 // do nothing
+            } break;
+            case SERVER_TASK_TYPE_METRICS:
+            {
+                json slots_data = json::array();
+
+                int n_idle_slots       = 0;
+                int n_processing_slots = 0;
+
+                for (server_slot & slot : slots) {
+                    json slot_data = slot.to_json(slots_debug == 0);
+
+                    if (slot.is_processing()) {
+                        n_processing_slots++;
+                    } else {
+                        n_idle_slots++;
+                    }
+
+                    slots_data.push_back(slot_data);
+                }
+                SRV_DBG("n_idle_slots = %d, n_processing_slots = %d\n", n_idle_slots, n_processing_slots);
+
+                auto res = std::make_unique<server_task_result_metrics>();
+                res->id                  = task.id;
+                res->slots_data          = std::move(slots_data);
+                res->n_idle_slots        = n_idle_slots;
+                res->n_processing_slots  = n_processing_slots;
+                res->n_tasks_deferred    = queue_tasks.queue_tasks_deferred.size();
+                res->t_start             = metrics.t_start;
+
+                res->n_prompt_tokens_processed_total = metrics.n_prompt_tokens_processed_total;
+                res->t_prompt_processing_total       = metrics.t_prompt_processing_total;
+                res->n_tokens_predicted_total        = metrics.n_tokens_predicted_total;
+                res->t_tokens_generation_total       = metrics.t_tokens_generation_total;
+
+                res->n_past_max = metrics.n_past_max;
+
+                res->n_prompt_tokens_processed = metrics.n_prompt_tokens_processed;
+                res->t_prompt_processing       = metrics.t_prompt_processing;
+                res->n_tokens_predicted        = metrics.n_tokens_predicted;
+                res->t_tokens_generation       = metrics.t_tokens_generation;
+
+                res->n_decode_total          = metrics.n_decode_total;
+                res->n_busy_slots_total      = metrics.n_busy_slots_total;
+
+                if (task.metrics_reset_bucket) {
+                    metrics.reset_bucket();
+                }
+                queue_results.send(std::move(res));
             } break;
 
             case SERVER_TASK_TYPE_SLOT_SAVE:
