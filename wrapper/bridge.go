@@ -12,6 +12,7 @@ import (
 	"sync"
 	"unsafe"
 
+	econfig "github.com/Qitmeer/llama.go/app/embedding/config"
 	"github.com/Qitmeer/llama.go/config"
 )
 
@@ -107,15 +108,14 @@ func LlamaEmbedding(cfg *config.Config, prompts string, embdOutputFormat string)
 	defer C.free(unsafe.Pointer(ip))
 
 	cfgArgs := assemblyArgs(cfg)
-	if len(cfg.Pooling) > 0 {
-		cfgArgs = fmt.Sprintf("%s --pooling %s", cfgArgs, cfg.Pooling)
-	}
+	cfgArgs = fmt.Sprintf("%s --embd-normalize %d", cfgArgs, econfig.Conf.EmbdNormalize)
 	if len(embdOutputFormat) > 0 {
 		cfgArgs = fmt.Sprintf("%s --embd-output-format %s", cfgArgs, embdOutputFormat)
+	} else {
+		cfgArgs = fmt.Sprintf("%s --embd-output-format %s", cfgArgs, econfig.Conf.EmbdOutputFormat)
 	}
-	if len(cfg.EmbdSeparator) > 0 {
-		cfgArgs = fmt.Sprintf("%s --embd-separator %s", cfgArgs, cfg.EmbdSeparator)
-	}
+	cfgArgs = fmt.Sprintf("%s --embd-separator %s", cfgArgs, econfig.Conf.EmbdSeparator)
+
 	ca := C.CString(cfgArgs)
 	defer C.free(unsafe.Pointer(ca))
 
@@ -218,9 +218,6 @@ func assemblyArgs(cfg *config.Config) string {
 	if cfg.Seed != math.MaxUint32 {
 		cfgArgs = fmt.Sprintf("%s --seed %d", cfgArgs, cfg.Seed)
 	}
-	if cfg.EmbdNormalize != 2 {
-		cfgArgs = fmt.Sprintf("%s --embd-normalize %d", cfgArgs, cfg.EmbdNormalize)
-	}
 	if cfg.BatchSize != 2048 {
 		cfgArgs = fmt.Sprintf("%s --batch-size %d", cfgArgs, cfg.BatchSize)
 	}
@@ -241,9 +238,6 @@ func assemblyArgs(cfg *config.Config) string {
 	}
 	if len(cfg.Pooling) > 0 {
 		cfgArgs = fmt.Sprintf("%s --pooling %s", cfgArgs, cfg.Pooling)
-	}
-	if len(cfg.EmbdSeparator) > 0 {
-		cfgArgs = fmt.Sprintf("%s --embd-separator %s", cfgArgs, cfg.EmbdSeparator)
 	}
 	return cfgArgs
 }

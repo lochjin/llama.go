@@ -4,9 +4,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/Qitmeer/llama.go/common"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli/v2"
 	"math"
 	"net"
 	"net/url"
@@ -14,6 +11,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/Qitmeer/llama.go/common"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/urfave/cli/v2"
 )
 
 const (
@@ -134,30 +135,6 @@ var (
 		Destination: &Conf.Pooling,
 	}
 
-	EmbdNormalize = &cli.IntFlag{
-		Name:        "embd-normalize",
-		Aliases:     []string{"N"},
-		Usage:       "normalisation for embeddings (default: %d) (-1=none, 0=max absolute int16, 1=taxicab, 2=euclidean, >2=p-norm)",
-		Value:       2,
-		Destination: &Conf.EmbdNormalize,
-	}
-
-	EmbdOutputFormat = &cli.StringFlag{
-		Name:        "embd-output-format",
-		Aliases:     []string{"FORMAT"},
-		Usage:       "empty = default, \"array\" = [[],[]...], \"json\" = openai style, \"json+\" = same \"json\" + cosine similarity matrix",
-		Value:       "json",
-		Destination: &Conf.EmbdOutputFormat,
-	}
-
-	EmbdSeparator = &cli.StringFlag{
-		Name:        "embd-separator",
-		Aliases:     []string{"STRING"},
-		Usage:       "separator of embeddings (default \\n) for example \"<#sep#>\\",
-		Value:       "<#sep#>",
-		Destination: &Conf.EmbdSeparator,
-	}
-
 	BatchSize = &cli.IntFlag{
 		Name:        "batch-size",
 		Aliases:     []string{"b"},
@@ -249,9 +226,6 @@ var (
 		NPredict,
 		Seed,
 		Pooling,
-		EmbdNormalize,
-		EmbdOutputFormat,
-		EmbdSeparator,
 		BatchSize,
 		UBatchSize,
 		OutputFile,
@@ -276,9 +250,6 @@ type Config struct {
 	NPredict           int
 	Seed               uint
 	Pooling            string
-	EmbdNormalize      int
-	EmbdOutputFormat   string
-	EmbdSeparator      string
 	BatchSize          int
 	UBatchSize         int
 	OutputFile         string
