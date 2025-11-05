@@ -7,18 +7,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"slices"
+	"strings"
+	"time"
+
 	"github.com/Qitmeer/llama.go/api"
+	config2 "github.com/Qitmeer/llama.go/app/embedding/config"
 	"github.com/Qitmeer/llama.go/config"
 	"github.com/Qitmeer/llama.go/model"
 	"github.com/Qitmeer/llama.go/version"
 	"github.com/Qitmeer/llama.go/wrapper"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gin-gonic/gin"
-	"io"
-	"net/http"
-	"slices"
-	"strings"
-	"time"
 )
 
 func (s *API) VersionHandler(c *gin.Context) {
@@ -254,7 +256,7 @@ func (s *API) EmbedHandler(c *gin.Context) {
 	prompts := ""
 	for k, i := range input {
 		if k > 0 {
-			prompts += s.cfg.EmbdSeparator
+			prompts += config2.Conf.EmbdSeparator
 		}
 		prompts += i
 	}

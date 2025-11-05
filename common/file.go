@@ -38,3 +38,15 @@ func IsExist(path string) bool {
 	}
 	return true
 }
+
+func SaveOutputToFile(outFilePath string, content string) error {
+	outFile, err := os.OpenFile(outFilePath, os.O_CREATE|os.O_TRUNC|os.O_RDWR, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		outFile.Close()
+	}()
+	_, err = outFile.WriteString(content)
+	return err
+}

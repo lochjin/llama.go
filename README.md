@@ -32,7 +32,7 @@ or
 ### client:
 
 ```bash
-~ ./llama run --prompt=天空为什么是蓝的
+~ ./llama run 天空为什么是蓝的
 ```
 Or enable interactive mode to run:
 ```bash
@@ -54,7 +54,7 @@ Or enable interactive mode to run:
 
 * Local mode:
 ```bash
-~ ./llama --model=qwen2.5-0.5b-q8_0.gguf --prompt=天空为什么是蓝的 --output-file=./embs.json embedding
+~ ./llama --model=qwen2.5-0.5b-q8_0.gguf embedding 天空为什么是蓝的 --output-file=./embs.json
 ```
 
 * Server mode:

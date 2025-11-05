@@ -3,9 +3,13 @@ package app
 import (
 	"context"
 	"fmt"
+
 	"github.com/Qitmeer/llama.go/api"
+	"github.com/Qitmeer/llama.go/app/embedding"
+	econfig "github.com/Qitmeer/llama.go/app/embedding/config"
 	"github.com/Qitmeer/llama.go/app/pull"
 	"github.com/Qitmeer/llama.go/app/run"
+	"github.com/Qitmeer/llama.go/common"
 	"github.com/Qitmeer/llama.go/config"
 	"github.com/Qitmeer/llama.go/server"
 	"github.com/Qitmeer/llama.go/system"
@@ -14,7 +18,6 @@ import (
 	"github.com/Qitmeer/llama.go/wrapper"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
-	"os"
 )
 
 func commands() []*cli.Command {
@@ -137,37 +140,12 @@ func embeddingCmd() *cli.Command {
 		Name:        "embedding",
 		Aliases:     []string{"e"},
 		Category:    "llama",
-		Usage:       "Generate high-dimensional embedding vector of a given text",
+		Usage:       "llama.go embedding [PROMPT]",
 		Description: "Generate high-dimensional embedding vector of a given text",
-		Before:      OnBefore,
-		Action: func(ctx *cli.Context) error {
-			cfg := config.Conf
-			log.Info("Start embedding")
-			ret, err := wrapper.LlamaEmbedding(cfg, cfg.Prompt, cfg.EmbdOutputFormat)
-			if err != nil {
-				return err
-			}
-			if len(cfg.OutputFile) > 0 {
-				return saveOutputToFile(cfg.OutputFile, ret)
-			} else {
-				fmt.Println("result:")
-				fmt.Println(ret)
-			}
-			return nil
-		},
+		Flags:       econfig.AppFlags,
+		Before:      OnBeforeForServe,
+		Action:      embedding.EmbeddingHandler,
 	}
-}
-
-func saveOutputToFile(outFilePath string, content string) error {
-	outFile, err := os.OpenFile(outFilePath, os.O_CREATE|os.O_TRUNC|os.O_RDWR, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		outFile.Close()
-	}()
-	_, err = outFile.WriteString(content)
-	return err
 }
 
 func whisperCmd() *cli.Command {
@@ -196,7 +174,7 @@ func whisperCmd() *cli.Command {
 				return err
 			}
 			if len(cfg.OutputFile) > 0 {
-				return saveOutputToFile(cfg.OutputFile, ret)
+				return common.SaveOutputToFile(cfg.OutputFile, ret)
 			} else {
 				fmt.Println("result:")
 				fmt.Println(ret)
