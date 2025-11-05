@@ -40,8 +40,12 @@ func OnBefore(ctx *cli.Context) error {
 }
 
 func OnBeforeForServe(ctx *cli.Context) error {
+	err := initLog(config.Conf)
+	if err != nil {
+		return err
+	}
 	log.Info("Before init")
-	err := config.Conf.Load()
+	err = config.Conf.Load()
 	if err != nil {
 		return err
 	}
