@@ -98,19 +98,9 @@ func serveCmd() *cli.Command {
 
 			ser := server.New(ctx, cfg)
 
-			err = wrapper.LlamaStart(cfg)
-			if err != nil {
-				log.Error(err.Error())
-			}
-			log.Info("Started llama core")
-
 			err = ser.Start()
 			defer func() {
 				err = ser.Stop()
-				if err != nil {
-					log.Error(err.Error())
-				}
-				err = wrapper.LlamaStop()
 				if err != nil {
 					log.Error(err.Error())
 				}

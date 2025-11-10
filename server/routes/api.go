@@ -2,17 +2,19 @@ package routes
 
 import (
 	"github.com/Qitmeer/llama.go/config"
+	"github.com/Qitmeer/llama.go/runner"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gin-gonic/gin"
 )
 
 type API struct {
-	cfg *config.Config
+	cfg       *config.Config
+	runnerSer *runner.Service
 }
 
-func New(cfg *config.Config) *API {
+func New(cfg *config.Config, runnerSer *runner.Service) *API {
 	log.Info("New API ...")
-	ser := API{cfg: cfg}
+	ser := API{cfg: cfg, runnerSer: runnerSer}
 	return &ser
 }
 

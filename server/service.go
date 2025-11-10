@@ -3,16 +3,18 @@ package server
 import (
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"sync"
+
 	"github.com/Qitmeer/llama.go/config"
+	"github.com/Qitmeer/llama.go/runner"
 	"github.com/Qitmeer/llama.go/server/middleware"
 	"github.com/Qitmeer/llama.go/server/routes"
 	"github.com/Qitmeer/llama.go/version"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gin-gonic/gin"
 	"github.com/urfave/cli/v2"
-	"net"
-	"net/http"
-	"sync"
 )
 
 type Service struct {
@@ -25,11 +27,14 @@ type Service struct {
 	wg sync.WaitGroup
 
 	api *routes.API
+
+	runnerSer *runner.Service
 }
 
 func New(ctx *cli.Context, cfg *config.Config) *Service {
 	log.Info("New Server ...")
-	ser := Service{ctx: ctx, cfg: cfg, api: routes.New(cfg)}
+	runnerSer := runner.New(ctx, cfg)
+	ser := Service{ctx: ctx, cfg: cfg, api: routes.New(cfg, runnerSer), runnerSer: runnerSer}
 	return &ser
 }
 
@@ -91,5 +96,9 @@ func (s *Service) Stop() error {
 		err = s.srvr.Close()
 	}
 	s.wg.Wait()
+
+	if s.runnerSer != nil {
+		err = s.runnerSer.Stop()
+	}
 	return err
 }

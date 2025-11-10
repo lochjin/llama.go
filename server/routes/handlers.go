@@ -8,7 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
+	"os"
 	"slices"
 	"strings"
 	"time"
@@ -21,6 +23,10 @@ import (
 	"github.com/Qitmeer/llama.go/wrapper"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gin-gonic/gin"
+)
+
+const (
+	InvalidModelNameErrMsg = "invalid model name"
 )
 
 func (s *API) VersionHandler(c *gin.Context) {
@@ -112,6 +118,30 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	name := model.ParseName(req.Model)
+	if !name.IsValid() {
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+		return
+	}
+
+	name, err = getExistingName(name)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+		return
+	}
+
+	m, err := GetModel(name.String())
+	if err != nil {
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+		case err.Error() == InvalidModelNameErrMsg:
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
 
 	id, ch := wrapper.NewChan()
 	if id == 0 {
@@ -123,7 +153,7 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		stream = *req.Stream
 	}
 	go func() {
-		err = wrapper.LlamaGenerate(id, fmt.Sprintf("{\"prompt\":\"%s\",\"stream\":%v}", req.Prompt, stream))
+		err = s.runnerSer.Generate(id, m.ModelPath, req.Prompt, stream)
 		if err != nil {
 			log.Warn(err.Error())
 			return
@@ -173,13 +203,39 @@ func (s *API) ChatHandler(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	name := model.ParseName(req.Model)
+	if !name.IsValid() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "model is required"})
+		return
+	}
+
+	name, err = getExistingName(name)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "model is required"})
+		return
+	}
+
+	m, err := GetModel(req.Model)
+	if err != nil {
+		switch {
+		case os.IsNotExist(err):
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+		case err.Error() == InvalidModelNameErrMsg:
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
 	id, ch := wrapper.NewChan()
 	if id == 0 {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "task id error"})
 		return
 	}
 	go func() {
-		err = wrapper.LlamaChat(id, bodyStr)
+		err = s.runnerSer.Chat(id, m.ModelPath, bodyStr)
 		if err != nil {
 			log.Warn(err.Error())
 			return

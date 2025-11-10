@@ -8,16 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Qitmeer/llama.go/api"
-	"github.com/Qitmeer/llama.go/config"
-	"github.com/Qitmeer/llama.go/model"
-	"github.com/Qitmeer/llama.go/model/fs/gguf"
-	"github.com/Qitmeer/llama.go/model/parser"
-	"github.com/Qitmeer/llama.go/model/parsers"
-	"github.com/Qitmeer/llama.go/model/template"
-	"github.com/Qitmeer/llama.go/model/thinking"
-	"github.com/Qitmeer/llama.go/version"
-	"github.com/ethereum/go-ethereum/log"
 	"io"
 	"net"
 	"net/http"
@@ -28,6 +18,17 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/Qitmeer/llama.go/api"
+	"github.com/Qitmeer/llama.go/config"
+	"github.com/Qitmeer/llama.go/model"
+	"github.com/Qitmeer/llama.go/model/fs/gguf"
+	"github.com/Qitmeer/llama.go/model/parser"
+	"github.com/Qitmeer/llama.go/model/parsers"
+	"github.com/Qitmeer/llama.go/model/template"
+	"github.com/Qitmeer/llama.go/model/thinking"
+	"github.com/Qitmeer/llama.go/version"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
@@ -349,19 +350,19 @@ func GetModel(name string) (*IModel, error) {
 		}
 
 		switch layer.MediaType {
-		case "application/vnd.llama.go.image.model":
+		case "application/vnd.llama.go.image.model", "application/vnd.ollama.image.model":
 			model.ModelPath = filename
 			model.ParentModel = layer.From
-		case "application/vnd.llama.go.image.embed":
+		case "application/vnd.llama.go.image.embed", "application/vnd.ollama.image.embed":
 			// Deprecated in versions  > 0.1.2
 			// TODO: remove this warning in a future version
 			log.Info("WARNING: model contains embeddings, but embeddings in modelfiles have been deprecated and will be ignored.")
-		case "application/vnd.llama.go.image.adapter":
+		case "application/vnd.llama.go.image.adapter", "application/vnd.ollama.image.adapter":
 			model.AdapterPaths = append(model.AdapterPaths, filename)
-		case "application/vnd.llama.go.image.projector":
+		case "application/vnd.llama.go.image.projector", "application/vnd.ollama.image.projector":
 			model.ProjectorPaths = append(model.ProjectorPaths, filename)
-		case "application/vnd.llama.go.image.prompt",
-			"application/vnd.llama.go.image.template":
+		case "application/vnd.llama.go.image.prompt", "application/vnd.llama.ollama.prompt",
+			"application/vnd.llama.go.image.template", "application/vnd.llama.ollama.template":
 			bts, err := os.ReadFile(filename)
 			if err != nil {
 				return nil, err
@@ -371,14 +372,14 @@ func GetModel(name string) (*IModel, error) {
 			if err != nil {
 				return nil, err
 			}
-		case "application/vnd.llama.go.image.system":
+		case "application/vnd.llama.go.image.system", "application/vnd.ollama.image.system":
 			bts, err := os.ReadFile(filename)
 			if err != nil {
 				return nil, err
 			}
 
 			model.System = string(bts)
-		case "application/vnd.llama.go.image.params":
+		case "application/vnd.llama.go.image.params", "application/vnd.ollama.image.params":
 			params, err := os.Open(filename)
 			if err != nil {
 				return nil, err
@@ -389,7 +390,7 @@ func GetModel(name string) (*IModel, error) {
 			if err = json.NewDecoder(params).Decode(&model.Options); err != nil {
 				return nil, err
 			}
-		case "application/vnd.llama.go.image.messages":
+		case "application/vnd.llama.go.image.messages", "application/vnd.ollama.image.messages":
 			msgs, err := os.Open(filename)
 			if err != nil {
 				return nil, err
@@ -399,7 +400,7 @@ func GetModel(name string) (*IModel, error) {
 			if err = json.NewDecoder(msgs).Decode(&model.Messages); err != nil {
 				return nil, err
 			}
-		case "application/vnd.llama.go.image.license":
+		case "application/vnd.llama.go.image.license", "application/vnd.ollama.image.license":
 			bts, err := os.ReadFile(filename)
 			if err != nil {
 				return nil, err
