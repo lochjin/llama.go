@@ -264,18 +264,12 @@ type Config struct {
 
 func (c *Config) Load() error {
 	log.Debug("Try to load config")
-	if !c.HasModel() {
-		return fmt.Errorf("No config model")
-	}
-	log.Debug("Model info", "model path", c.ModelPath())
+	log.Debug("Model info", "model root dir", c.ModelDir)
 	return nil
 }
 
 func (c *Config) ModelPath() string {
 	if len(c.Model) <= 0 {
-		return ""
-	}
-	if !strings.Contains(c.Model, EXT) {
 		return ""
 	}
 	if common.IsFilePath(c.Model) {

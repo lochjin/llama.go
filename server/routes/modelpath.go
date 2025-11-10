@@ -3,14 +3,15 @@ package routes
 import (
 	"errors"
 	"fmt"
-	"github.com/Qitmeer/llama.go/config"
-	"github.com/Qitmeer/llama.go/model"
 	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/Qitmeer/llama.go/config"
+	"github.com/Qitmeer/llama.go/model"
 )
 
 type ModelPath struct {
@@ -22,8 +23,8 @@ type ModelPath struct {
 }
 
 const (
-	DefaultRegistry       = "registry.llamago.ai"
-	DefaultNamespace      = "library"
+	DefaultRegistry       = "hf.co"
+	DefaultNamespace      = "unsloth"
 	DefaultTag            = "latest"
 	DefaultProtocolScheme = "https"
 )
