@@ -24,19 +24,19 @@ or
 ### As the startup of the server
 
 ```bash
-~ ./llama serve
+~ ./llama --model=qwen2.5-0.5b-q8_0.gguf serve
 or
-~ ./llama --jinja serve
+~ ./llama --model=gpt-oss-20b-mxfp4.gguf --jinja serve
 ```
 
 ### client:
 
 ```bash
-~ ./llama run gpt-oss-20b-GGUF 天空为什么是蓝的
+~ ./llama run 天空为什么是蓝的
 ```
 Or enable interactive mode to run:
 ```bash
-~ ./llama run gpt-oss-20b-GGUF
+~ ./llama run
 ```
 
 
