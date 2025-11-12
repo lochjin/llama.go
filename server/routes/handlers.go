@@ -53,12 +53,6 @@ func (s *API) PullHandler(c *gin.Context) {
 		return
 	}
 
-	name, err = getExistingName(name)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
 	ch := make(chan any)
 	go func() {
 		defer close(ch)
@@ -66,12 +60,10 @@ func (s *API) PullHandler(c *gin.Context) {
 			ch <- r
 		}
 
-		regOpts := &RegistryOptions{}
-
 		ctx, cancel := context.WithCancel(c.Request.Context())
 		defer cancel()
 
-		if err := PullModel(ctx, name.DisplayShortest(), regOpts, fn); err != nil {
+		if err := PullModel(ctx, name.DisplayShortest(), fn); err != nil {
 			ch <- gin.H{"error": err.Error()}
 		}
 	}()
