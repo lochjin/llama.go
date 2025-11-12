@@ -8,9 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
-	"os"
 	"slices"
 	"strings"
 	"time"
@@ -118,30 +116,6 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	name := model.ParseName(req.Model)
-	if !name.IsValid() {
-		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
-		return
-	}
-
-	name, err = getExistingName(name)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
-		return
-	}
-
-	m, err := GetModel(name.String())
-	if err != nil {
-		switch {
-		case errors.Is(err, fs.ErrNotExist):
-			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
-		case err.Error() == InvalidModelNameErrMsg:
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
-		return
-	}
 
 	id, ch := wrapper.NewChan()
 	if id == 0 {
@@ -153,7 +127,7 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		stream = *req.Stream
 	}
 	go func() {
-		err = s.runnerSer.Generate(id, m.ModelPath, req.Prompt, stream)
+		err = s.runnerSer.Generate(id, req.Prompt, stream)
 		if err != nil {
 			log.Warn(err.Error())
 			return
@@ -204,38 +178,13 @@ func (s *API) ChatHandler(c *gin.Context) {
 		return
 	}
 
-	name := model.ParseName(req.Model)
-	if !name.IsValid() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "model is required"})
-		return
-	}
-
-	name, err = getExistingName(name)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "model is required"})
-		return
-	}
-
-	m, err := GetModel(req.Model)
-	if err != nil {
-		switch {
-		case os.IsNotExist(err):
-			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
-		case err.Error() == InvalidModelNameErrMsg:
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
-		return
-	}
-
 	id, ch := wrapper.NewChan()
 	if id == 0 {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "task id error"})
 		return
 	}
 	go func() {
-		err = s.runnerSer.Chat(id, m.ModelPath, bodyStr)
+		err = s.runnerSer.Chat(id, bodyStr)
 		if err != nil {
 			log.Warn(err.Error())
 			return

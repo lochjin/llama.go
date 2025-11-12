@@ -40,7 +40,11 @@ func New(ctx *cli.Context, cfg *config.Config) *Service {
 
 func (s *Service) Start() error {
 	log.Info("Start Server...")
-	err := s.api.Start()
+	err := s.runnerSer.Start()
+	if err != nil {
+		return err
+	}
+	err = s.api.Start()
 	if err != nil {
 		return err
 	}

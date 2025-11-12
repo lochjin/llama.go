@@ -14,7 +14,6 @@ type Service struct {
 	ctx     *cli.Context
 	cfg     *config.Config
 	running bool
-	model   string
 }
 
 func New(ctx *cli.Context, cfg *config.Config) *Service {
@@ -28,7 +27,6 @@ func (s *Service) Start() error {
 		return errors.New("Already Running")
 	}
 	log.Info("Start Runner...")
-	s.cfg.Model = s.model
 	err := wrapper.LlamaStart(s.cfg)
 	if err != nil {
 		log.Error(err.Error())
@@ -56,29 +54,10 @@ func (s *Service) IsRunning() bool {
 	return s.running
 }
 
-func (s *Service) Generate(id int, model string, prompt string, stream bool) error {
-	err := s.checkRunning(model)
-	if err != nil {
-		return err
-	}
+func (s *Service) Generate(id int, prompt string, stream bool) error {
 	return wrapper.LlamaGenerate(id, fmt.Sprintf("{\"prompt\":\"%s\",\"stream\":%v}", prompt, stream))
 }
 
-func (s *Service) checkRunning(model string) error {
-	if !s.IsRunning() {
-		s.model = model
-		err := s.Start()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *Service) Chat(id int, model string, jsStr string) error {
-	err := s.checkRunning(model)
-	if err != nil {
-		return err
-	}
+func (s *Service) Chat(id int, jsStr string) error {
 	return wrapper.LlamaChat(id, jsStr)
 }
