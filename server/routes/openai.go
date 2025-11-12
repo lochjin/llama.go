@@ -3,9 +3,11 @@ package routes
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/Qitmeer/llama.go/model"
 	"io"
 	"net/http"
+
+	"github.com/Qitmeer/llama.go/model"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/gin-gonic/gin"
 
@@ -76,11 +78,16 @@ func NewError(code int, message string) ErrorResponse {
 func toListCompletion(r api.ListResponse) ListCompletion {
 	var data []Model
 	for _, m := range r.Models {
+		hf, err := model.ParseHuggingFaceModel(m.Name)
+		if err != nil {
+			log.Error(err.Error())
+			continue
+		}
 		data = append(data, Model{
 			Id:      m.Name,
 			Object:  "model",
 			Created: m.ModifiedAt.Unix(),
-			OwnedBy: model.ParseName(m.Name).Namespace,
+			OwnedBy: hf.Namespace,
 		})
 	}
 
@@ -116,11 +123,18 @@ func toEmbeddingList(model string, r api.EmbedResponse) EmbeddingList {
 }
 
 func toModel(r api.ShowResponse, m string) Model {
+	ownedby := m
+	hf, err := model.ParseHuggingFaceModel(m)
+	if err != nil {
+		log.Error(err.Error())
+	} else {
+		ownedby = hf.Namespace
+	}
 	return Model{
 		Id:      m,
 		Object:  "model",
 		Created: r.ModifiedAt.Unix(),
-		OwnedBy: model.ParseName(m).Namespace,
+		OwnedBy: ownedby,
 	}
 }
 

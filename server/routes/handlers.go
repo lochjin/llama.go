@@ -46,10 +46,10 @@ func (s *API) PullHandler(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	name := model.ParseName(cmp.Or(req.Model))
-	if !name.IsValid() {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid model name"})
+	// Parse model reference
+	hf, err := model.ParseHuggingFaceModel(req.Model)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": fmt.Errorf("failed to parse model reference: %w", err)})
 		return
 	}
 
@@ -63,7 +63,7 @@ func (s *API) PullHandler(c *gin.Context) {
 		ctx, cancel := context.WithCancel(c.Request.Context())
 		defer cancel()
 
-		if err := PullModel(ctx, name.DisplayShortest(), fn); err != nil {
+		if err := PullModel(ctx, hf, fn); err != nil {
 			ch <- gin.H{"error": err.Error()}
 		}
 	}()
