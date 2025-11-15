@@ -38,8 +38,19 @@ Or enable interactive mode to run:
 ```bash
 ~ ./llama run
 ```
-
-
+ 
+#### Download Model by CLI:
+```bash
+~ ./llama pull gte-small-Q8_0-GGUF
+```
+or
+```bash
+~ ./llama pull gte-small-Q8_0-GGUF:gte-small-q8_0.gguf
+```
+or
+```bash
+~ ./llama pull llamago/gte-small-Q8_0-GGUF:gte-small-q8_0.gguf
+```
 
 
 * Support REST API:
