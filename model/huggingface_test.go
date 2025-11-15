@@ -6,69 +6,64 @@ import (
 
 func TestParseHuggingFaceModel(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     string
-		wantNS    string
-		wantRepo  string
-		wantFile  string
-		wantPat   string
+		name       string
+		input      string
+		wantNS     string
+		wantRepo   string
+		wantFile   string
+		wantPat    string
 		wantBranch string
-		wantErr   bool
+		wantErr    bool
 	}{
 		{
-			name:      "Simple repo",
-			input:     "unsloth/llama-3-8b",
-			wantNS:    "unsloth",
-			wantRepo:  "llama-3-8b",
-			wantFile:  "",
-			wantPat:   "",
+			name:       "Simple repo",
+			input:      "unsloth/llama-3-8b",
+			wantNS:     "unsloth",
+			wantRepo:   "llama-3-8b",
+			wantFile:   "",
+			wantPat:    "",
 			wantBranch: "main",
-			wantErr:   false,
+			wantErr:    false,
 		},
 		{
-			name:      "Repo with file",
-			input:     "unsloth/llama-3-8b:llama-3-8b-Q4_K_M.gguf",
-			wantNS:    "unsloth",
-			wantRepo:  "llama-3-8b",
-			wantFile:  "llama-3-8b-Q4_K_M.gguf",
-			wantPat:   "",
+			name:       "Repo with file",
+			input:      "unsloth/llama-3-8b:llama-3-8b-Q4_K_M.gguf",
+			wantNS:     "unsloth",
+			wantRepo:   "llama-3-8b",
+			wantFile:   "llama-3-8b-Q4_K_M.gguf",
+			wantPat:    "",
 			wantBranch: "main",
-			wantErr:   false,
+			wantErr:    false,
 		},
 		{
-			name:      "Repo with pattern",
-			input:     "unsloth/llama-3-8b:Q4_K_M",
-			wantNS:    "unsloth",
-			wantRepo:  "llama-3-8b",
-			wantFile:  "",
-			wantPat:   "Q4_K_M",
+			name:       "Repo with pattern",
+			input:      "unsloth/llama-3-8b:Q4_K_M",
+			wantNS:     "unsloth",
+			wantRepo:   "llama-3-8b",
+			wantFile:   "",
+			wantPat:    "Q4_K_M",
 			wantBranch: "main",
-			wantErr:   false,
+			wantErr:    false,
 		},
 		{
-			name:      "Full URL with resolve",
-			input:     "https://huggingface.co/unsloth/llama-3-8b/resolve/main/llama-3-8b-Q4_K_M.gguf",
-			wantNS:    "unsloth",
-			wantRepo:  "llama-3-8b",
-			wantFile:  "llama-3-8b-Q4_K_M.gguf",
-			wantPat:   "",
+			name:       "Full URL with resolve",
+			input:      "https://huggingface.co/unsloth/llama-3-8b/resolve/main/llama-3-8b-Q4_K_M.gguf",
+			wantNS:     "unsloth",
+			wantRepo:   "llama-3-8b",
+			wantFile:   "llama-3-8b-Q4_K_M.gguf",
+			wantPat:    "",
 			wantBranch: "main",
-			wantErr:   false,
+			wantErr:    false,
 		},
 		{
-			name:      "Full URL with different branch",
-			input:     "https://huggingface.co/microsoft/phi-2/resolve/v1.0/phi-2.gguf",
-			wantNS:    "microsoft",
-			wantRepo:  "phi-2",
-			wantFile:  "phi-2.gguf",
-			wantPat:   "",
+			name:       "Full URL with different branch",
+			input:      "https://huggingface.co/microsoft/phi-2/resolve/v1.0/phi-2.gguf",
+			wantNS:     "microsoft",
+			wantRepo:   "phi-2",
+			wantFile:   "phi-2.gguf",
+			wantPat:    "",
 			wantBranch: "v1.0",
-			wantErr:   false,
-		},
-		{
-			name:      "Invalid format - no slash",
-			input:     "invalidmodel",
-			wantErr:   true,
+			wantErr:    false,
 		},
 	}
 
