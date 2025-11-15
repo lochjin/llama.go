@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	DefaultHFHost   = "huggingface.co"
-	DefaultHFBranch = "main"
+	DefaultHFHost      = "huggingface.co"
+	DefaultHFBranch    = "main"
+	DefaultHFNamespace = "llamago"
 )
 
 // HuggingFaceModel represents a parsed Hugging Face model reference
@@ -21,11 +22,12 @@ const (
 // 2. Repo with file: namespace/repo:file.gguf
 // 3. Repo with pattern: namespace/repo:Q4_K_M (will search for matching files)
 // 4. Simple repo: namespace/repo (will auto-detect GGUF files)
+// 5. Repo only: repo (uses default namespace "llamago")
 type HuggingFaceModel struct {
 	// Host is the Hugging Face host (default: huggingface.co)
 	Host string
 
-	// Namespace is the user or organization name
+	// Namespace is the user or organization name (default: llamago)
 	Namespace string
 
 	// Repo is the repository name
@@ -49,10 +51,12 @@ type HuggingFaceModel struct {
 //   - namespace/repo:file.gguf
 //   - namespace/repo:Q4_K_M
 //   - namespace/repo
+//   - repo (uses default namespace: llamago)
 func ParseHuggingFaceModel(s string) (*HuggingFaceModel, error) {
 	hf := &HuggingFaceModel{
-		Host:   DefaultHFHost,
-		Branch: DefaultHFBranch,
+		Host:      DefaultHFHost,
+		Branch:    DefaultHFBranch,
+		Namespace: DefaultHFNamespace,
 	}
 
 	// Check if it's a full URL
@@ -73,12 +77,16 @@ func ParseHuggingFaceModel(s string) (*HuggingFaceModel, error) {
 
 	// Split namespace/repo
 	parts := strings.Split(repoPath, "/")
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("invalid format: expected 'namespace/repo', got '%s'", repoPath)
+	if len(parts) == 1 {
+		// Only repo name provided, use default namespace
+		hf.Repo = parts[0]
+	} else if len(parts) >= 2 {
+		// Both namespace and repo provided
+		hf.Namespace = parts[0]
+		hf.Repo = parts[1]
+	} else {
+		return nil, fmt.Errorf("invalid format: got '%s'", repoPath)
 	}
-
-	hf.Namespace = parts[0]
-	hf.Repo = parts[1]
 
 	// Determine if suffix is a filename or pattern
 	if suffix != "" {
