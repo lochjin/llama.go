@@ -183,7 +183,7 @@ func (s *API) ChatHandler(c *gin.Context) {
 		}
 	}()
 
-	if req.Stream == nil && !*req.Stream {
+	if req.Stream == nil || !*req.Stream {
 		content := ""
 		for rr := range ch {
 			str, ok := rr.(string)
