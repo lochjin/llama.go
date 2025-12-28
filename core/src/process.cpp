@@ -37,11 +37,11 @@ bool llama_stop() {
     return true;
 }
 
-Result llama_gen(int id,const char * js_str) {
+Result llama_gen(int id,const char * model,const char * js_str) {
     if (!Scheduler::instance().is_running()) {
         return {false};
     }
-    Request rq{id,std::string(js_str)};
+    Request rq{id,std::string(model),std::string(js_str)};
     Response rp{id};
 
     rp.write = [](int id, const std::string& content) {

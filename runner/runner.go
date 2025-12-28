@@ -54,8 +54,8 @@ func (s *Service) IsRunning() bool {
 	return s.running
 }
 
-func (s *Service) Generate(id int, prompt string, stream bool) error {
-	return wrapper.LlamaGenerate(id, fmt.Sprintf("{\"prompt\":\"%s\",\"stream\":%v}", prompt, stream))
+func (s *Service) Generate(id int, model string, prompt string, stream bool) error {
+	return wrapper.LlamaGenerate(id, model, fmt.Sprintf("{\"prompt\":\"%s\",\"stream\":%v}", prompt, stream))
 }
 
 func (s *Service) Chat(id int, jsStr string) error {
