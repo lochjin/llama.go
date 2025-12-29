@@ -16,6 +16,32 @@ bool Scheduler::start(const std::vector<std::string>& args) {
     }
     std::cout << "Scheduler Start:"<<oss.str()<< std::endl;
 
+    common_init();
+    llama_backend_init();
+
+    return init_server_context(args);
+}
+
+bool Scheduler::stop() {
+    std::cout << "Scheduler stop: is_running="<<is_running()<< std::endl;
+    if (!is_running()) {
+        return false;
+    }
+    running= false;
+    cleanup();
+    if (tasks_thread.joinable()) {
+        tasks_thread.join();
+    }
+    return true;
+}
+
+bool Scheduler::init_server_context(const std::vector<std::string>& args) {
+    std::ostringstream oss;
+    for (const auto& s : args) {
+        oss << s << " ";
+    }
+    std::cout << "init server context:"<<oss.str()<< std::endl;
+
     std::vector<char*> v_argv;
     for (auto& t : args) {
         v_argv.push_back(const_cast<char*>(t.c_str()));
@@ -31,9 +57,9 @@ bool Scheduler::start(const std::vector<std::string>& args) {
         params.model_alias=fp.stem().string();
     }
 
-    common_init();
-    llama_backend_init();
-    llama_numa_init(params.numa);
+    if (ctx_servers.empty()) {
+        llama_numa_init(params.numa);
+    }
 
     LOG_INF("system info: n_threads = %d, n_threads_batch = %d, total_threads = %d\n", params.cpuparams.n_threads, params.cpuparams_batch.n_threads, std::thread::hardware_concurrency());
     LOG_INF("\n");
@@ -82,19 +108,7 @@ bool Scheduler::start(const std::vector<std::string>& args) {
         ctx_server.queue_tasks.start_loop();
     });
 
-    return true;
-}
-
-bool Scheduler::stop() {
-    std::cout << "Scheduler stop: is_running="<<is_running()<< std::endl;
-    if (!is_running()) {
-        return false;
-    }
-    running= false;
-    cleanup();
-    if (tasks_thread.joinable()) {
-        tasks_thread.join();
-    }
+    ctx_servers[params.model.path]=&ctx_server;
     return true;
 }
 
@@ -117,6 +131,7 @@ void Scheduler::handle_completions(const Request & req, Response & res) {
     std::vector<raw_buffer> files; // dummy
     handle_completions_impl(
             SERVER_TASK_TYPE_COMPLETION,
+            req.model,
             data,
             files,
             req.is_connection_closed,
@@ -128,6 +143,7 @@ void Scheduler::handle_completions(const Request & req, Response & res) {
 // we can optionally provide a custom format for partial results and final results
 void Scheduler::handle_completions_impl(
         server_task_type type,
+        std::string model,
         json & data,
         const std::vector<raw_buffer> & files,
         const std::function<bool()> & is_connection_closed,
@@ -260,6 +276,7 @@ void Scheduler::handle_completions_oai(const Request & req, Response & res) {
     std::vector<raw_buffer> files; // dummy
     handle_completions_impl(
             SERVER_TASK_TYPE_COMPLETION,
+            req.model,
             data,
             files,
             req.is_connection_closed,
@@ -279,6 +296,7 @@ void Scheduler::handle_chat_completions(const Request & req, Response & res) {
 
     handle_completions_impl(
             SERVER_TASK_TYPE_COMPLETION,
+            req.model,
             data,
             files,
             req.is_connection_closed,
