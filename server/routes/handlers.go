@@ -119,7 +119,11 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		stream = *req.Stream
 	}
 	go func() {
-		err = s.runnerSer.Generate(id, req.Model, req.Prompt, stream)
+		m := req.Model
+		if len(m) <= 0 {
+			m = s.cfg.ModelPath()
+		}
+		err = s.runnerSer.Generate(id, m, req.Prompt, stream)
 		if err != nil {
 			log.Warn(err.Error())
 			return
