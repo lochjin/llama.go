@@ -58,6 +58,6 @@ func (s *Service) Generate(id int, model string, prompt string, stream bool) err
 	return wrapper.LlamaGenerate(id, model, fmt.Sprintf("{\"prompt\":\"%s\",\"stream\":%v}", prompt, stream))
 }
 
-func (s *Service) Chat(id int, jsStr string) error {
-	return wrapper.LlamaChat(id, jsStr)
+func (s *Service) Chat(id int, model string, jsStr string) error {
+	return wrapper.LlamaChat(id, model, jsStr)
 }

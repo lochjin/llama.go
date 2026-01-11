@@ -336,6 +336,23 @@ func (c *Config) GetModelFileInfos() []os.FileInfo {
 	return ret
 }
 
+func (c *Config) GetModelPath(model string) string {
+	if len(model) <= 0 {
+		return ""
+	}
+	if !strings.Contains(model, EXT) {
+		return ""
+	}
+	if common.IsFilePath(model) {
+		return model
+	}
+	ret, err := filepath.Abs(filepath.Join(c.ModelDir, model))
+	if err != nil {
+		return ""
+	}
+	return ret
+}
+
 func (c *Config) HostURL() *url.URL {
 	defaultPort := DefaultPort
 	chost := c.Host

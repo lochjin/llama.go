@@ -119,7 +119,7 @@ func (s *API) GenerateHandler(c *gin.Context) {
 		stream = *req.Stream
 	}
 	go func() {
-		m := req.Model
+		m := s.cfg.GetModelPath(req.Model)
 		if len(m) <= 0 {
 			m = s.cfg.ModelPath()
 		}
@@ -180,7 +180,11 @@ func (s *API) ChatHandler(c *gin.Context) {
 		return
 	}
 	go func() {
-		err = s.runnerSer.Chat(id, bodyStr)
+		m := s.cfg.GetModelPath(req.Model)
+		if len(m) <= 0 {
+			m = s.cfg.ModelPath()
+		}
+		err = s.runnerSer.Chat(id, m, bodyStr)
 		if err != nil {
 			log.Warn(err.Error())
 			return
