@@ -67,7 +67,7 @@ Result llama_chat(int id,const char * js_str) {
         return {false};
     }
 
-    Request rq{id,std::string(js_str)};
+    Request rq{id, "", std::string(js_str)};
     Response rp{id};
 
     rp.write = [](int id, const std::string& content) {
