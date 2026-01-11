@@ -69,14 +69,21 @@ func LlamaGenerate(id int, model string, jsStr string) error {
 	return nil
 }
 
-func LlamaChat(id int, jsStr string) error {
+func LlamaChat(id int, model string, jsStr string) error {
 	if len(jsStr) <= 0 {
 		return fmt.Errorf("json string")
 	}
+	if len(model) <= 0 {
+		return fmt.Errorf("model string")
+	}
+
 	js := C.CString(jsStr)
 	defer C.free(unsafe.Pointer(js))
 
-	ret := C.llama_chat(C.int(id), js)
+	m := C.CString(model)
+	defer C.free(unsafe.Pointer(m))
+
+	ret := C.llama_chat(C.int(id), m, js)
 	if !bool(ret.ret) {
 		return fmt.Errorf("Llama run error")
 	}
