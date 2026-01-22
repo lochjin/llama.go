@@ -19,6 +19,7 @@ bool Scheduler::start(const std::vector<std::string>& args) {
     common_init();
     llama_backend_init();
 
+    base_args = args;
     return init_server_context(args);
 }
 
@@ -29,9 +30,6 @@ bool Scheduler::stop() {
     }
     running= false;
     cleanup();
-    if (tasks_thread.joinable()) {
-        tasks_thread.join();
-    }
     return true;
 }
 
@@ -57,64 +55,35 @@ bool Scheduler::init_server_context(const std::vector<std::string>& args) {
         params.model_alias=fp.stem().string();
     }
 
-    if (ctx_servers.empty()) {
-        llama_numa_init(params.numa);
+    if (!params.model.path.empty()) {
+        default_model_key = params.model.path;
     }
 
-    LOG_INF("system info: n_threads = %d, n_threads_batch = %d, total_threads = %d\n", params.cpuparams.n_threads, params.cpuparams_batch.n_threads, std::thread::hardware_concurrency());
-    LOG_INF("\n");
-    LOG_INF("%s\n", common_params_get_system_info(params).c_str());
-    LOG_INF("\n");
-
-    // Necessary similarity of prompt for slot selection
-    ctx_server.slot_prompt_similarity = params.slot_prompt_similarity;
-
-    //
-    // Start the server
-    //
-    if (params.n_threads_http < 1) {
-        // +2 threads for monitoring endpoints
-        params.n_threads_http = std::max(params.n_parallel + 2, (int32_t) std::thread::hardware_concurrency() - 1);
+    if (default_model_key.empty()) {
+        running = true;
+        return true;
     }
-
-    // load the model
-    LOG_INF("%s: loading model\n", __func__);
-
-    if (!ctx_server.load_model(params)) {
-        cleanup();
-        LOG_ERR("%s: exiting due to model loading error\n", __func__);
-        return false;
-    }
-
-    ctx_server.init();
-
-    LOG_INF("%s: model loaded\n", __func__);
-
-    // print sample chat example to make it clear which template is used
-    LOG_INF("%s: chat template, chat_template: %s, example_format: '%s'\n", __func__,
-            common_chat_templates_source(ctx_server.chat_templates.get()),
-            common_chat_format_example(ctx_server.chat_templates.get(), ctx_server.params_base.use_jinja, ctx_server.params_base.default_template_kwargs).c_str());
-
-    ctx_server.queue_tasks.on_new_task([this](server_task && task) {
-        ctx_server.process_single_task(std::move(task));
-    });
-
-    ctx_server.queue_tasks.on_update_slots([this]() {
-        ctx_server.update_slots();
-    });
-    running= true;
-    // this call blocks the main thread until queue_tasks.terminate() is called
-    tasks_thread = std::thread([&](){
-        ctx_server.queue_tasks.start_loop();
-    });
-
-    ctx_servers[params.model.path]=&ctx_server;
-    return true;
+    return init_server_context_for_model(default_model_key);
 }
 
 void Scheduler::cleanup() {
-    // this will unblock start_loop()
-    ctx_server.queue_tasks.terminate();
+    std::map<std::string, std::unique_ptr<CtxEntry>> to_cleanup;
+    {
+        std::lock_guard<std::mutex> lk(ctx_mu);
+        to_cleanup.swap(ctx_servers);
+    }
+
+    for (auto & kv : to_cleanup) {
+        auto & entry = kv.second;
+        // this will unblock start_loop()
+        entry->ctx.queue_tasks.terminate();
+    }
+    for (auto & kv : to_cleanup) {
+        auto & entry = kv.second;
+        if (entry->thread.joinable()) {
+            entry->thread.join();
+        }
+    }
     llama_backend_free();
 }
 
@@ -123,7 +92,11 @@ bool Scheduler::is_running() {
 }
 
 common_params * Scheduler::get_common_params() {
-    return &ctx_server.params_base;
+    auto * ctx = get_default_ctx();
+    if (!ctx) {
+        return nullptr;
+    }
+    return &ctx->params_base;
 }
 
 void Scheduler::handle_completions(const Request & req, Response & res) {
@@ -151,6 +124,12 @@ void Scheduler::handle_completions_impl(
         oaicompat_type oaicompat) {
     GGML_ASSERT(type == SERVER_TASK_TYPE_COMPLETION || type == SERVER_TASK_TYPE_INFILL);
 
+    server_context * ctx = get_or_create_ctx(model);
+    if (!ctx) {
+        res_error(res, format_error_response("model is required or default model not initialized", ERROR_TYPE_INVALID_REQUEST));
+        return;
+    }
+
     auto completion_id = gen_chatcmplid();
     std::unordered_set<int> task_ids;
     try {
@@ -163,15 +142,15 @@ void Scheduler::handle_completions_impl(
         // process prompt
         std::vector<server_tokens> inputs;
 
-        if (oaicompat && ctx_server.mctx != nullptr) {
+        if (oaicompat && ctx->mctx != nullptr) {
             // This is the case used by OAI compatible chat path with MTMD. TODO It can be moved to the path below.
-            inputs.push_back(process_mtmd_prompt(ctx_server.mctx, prompt.get<std::string>(), files));
+            inputs.push_back(process_mtmd_prompt(ctx->mctx, prompt.get<std::string>(), files));
         } else {
             // Everything else, including multimodal completions.
-            inputs = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt, true, true);
+            inputs = tokenize_input_prompts(ctx->vocab, ctx->mctx, prompt, true, true);
         }
 
-        const size_t n_ctx_slot = ctx_server.n_ctx / ctx_server.params_base.n_parallel;
+        const size_t n_ctx_slot = ctx->n_ctx / ctx->params_base.n_parallel;
         tasks.reserve(inputs.size());
         for (size_t i = 0; i < inputs.size(); i++) {
             auto n_prompt_tokens = inputs[i].size();
@@ -184,13 +163,13 @@ void Scheduler::handle_completions_impl(
             }
             server_task task = server_task(type);
 
-            task.id    = ctx_server.queue_tasks.get_new_id();
+            task.id    = ctx->queue_tasks.get_new_id();
             task.index = i;
 
             task.tokens = std::move(inputs[i]);
             task.params = server_task::params_from_json_cmpl(
-                    ctx_server.ctx,
-                    ctx_server.params_base,
+                    ctx->ctx,
+                    ctx->params_base,
                     data);
             task.id_slot = json_value(data, "id_slot", -1);
 
@@ -203,8 +182,8 @@ void Scheduler::handle_completions_impl(
         }
 
         task_ids = server_task::get_list_id(tasks);
-        ctx_server.queue_results.add_waiting_tasks(tasks);
-        ctx_server.queue_tasks.post(std::move(tasks));
+        ctx->queue_results.add_waiting_tasks(tasks);
+        ctx->queue_tasks.post(std::move(tasks));
     } catch (const std::exception & e) {
         res_error(res, format_error_response(e.what(), ERROR_TYPE_INVALID_REQUEST));
         return;
@@ -213,7 +192,7 @@ void Scheduler::handle_completions_impl(
     bool stream = json_value(data, "stream", false);
 
     if (!stream) {
-        ctx_server.receive_multi_results(task_ids, [&](std::vector<server_task_result_ptr> & results) {
+        ctx->receive_multi_results(task_ids, [&](std::vector<server_task_result_ptr> & results) {
             if (results.size() == 1) {
                 // single result
                 res_ok(res, results[0]->to_json());
@@ -229,7 +208,7 @@ void Scheduler::handle_completions_impl(
             res_error(res, error_data);
         }, is_connection_closed);
         res.complete(res.id);
-        ctx_server.queue_results.remove_waiting_task_ids(task_ids);
+        ctx->queue_results.remove_waiting_task_ids(task_ids);
     } else {
         auto server_sent_event=[&](const json & data) {
             const std::string str =
@@ -241,7 +220,7 @@ void Scheduler::handle_completions_impl(
 
             return res.write(res.id,str);
         };
-        ctx_server.receive_cmpl_results_stream(task_ids, [&](server_task_result_ptr & result) -> bool {
+        ctx->receive_cmpl_results_stream(task_ids, [&](server_task_result_ptr & result) -> bool {
             json res_json = result->to_json();
             if (res_json.is_array()) {
                 for (const auto & res : res_json) {
@@ -266,7 +245,7 @@ void Scheduler::handle_completions_impl(
         }
         res.success= true;
         res.complete(res.id);
-        ctx_server.queue_results.remove_waiting_task_ids(task_ids);
+        ctx->queue_results.remove_waiting_task_ids(task_ids);
     }
 }
 
@@ -289,9 +268,14 @@ void Scheduler::handle_chat_completions(const Request & req, Response & res) {
 
     auto body = json::parse(req.body);
     std::vector<raw_buffer> files;
+    server_context * ctx = get_or_create_ctx(req.model);
+    if (!ctx) {
+        res_error(res, format_error_response("model is required or default model not initialized", ERROR_TYPE_INVALID_REQUEST));
+        return;
+    }
     json data = oaicompat_chat_params_parse(
             body,
-            ctx_server.oai_parser_opt,
+            ctx->oai_parser_opt,
             files);
 
     handle_completions_impl(
@@ -305,12 +289,18 @@ void Scheduler::handle_chat_completions(const Request & req, Response & res) {
 }
 
 void Scheduler::handle_embeddings_impl(const Request & req, Response & res, oaicompat_type oaicompat) {
-    if (!ctx_server.params_base.embedding) {
+    server_context * ctx = get_or_create_ctx(req.model);
+    if (!ctx) {
+        res_error(res, format_error_response("model is required or default model not initialized", ERROR_TYPE_INVALID_REQUEST));
+        return;
+    }
+
+    if (!ctx->params_base.embedding) {
         res_error(res, format_error_response("This server does not support embeddings. Start it with `--embeddings`", ERROR_TYPE_NOT_SUPPORTED));
         return;
     }
 
-    if (oaicompat != OAICOMPAT_TYPE_NONE && llama_pooling_type(ctx_server.ctx) == LLAMA_POOLING_TYPE_NONE) {
+    if (oaicompat != OAICOMPAT_TYPE_NONE && llama_pooling_type(ctx->ctx) == LLAMA_POOLING_TYPE_NONE) {
         res_error(res, format_error_response("Pooling type 'none' is not OAI compatible. Please use a different pooling type", ERROR_TYPE_INVALID_REQUEST));
         return;
     }
@@ -340,7 +330,7 @@ void Scheduler::handle_embeddings_impl(const Request & req, Response & res, oaic
         }
     }
 
-    auto tokenized_prompts = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt, true, true);
+    auto tokenized_prompts = tokenize_input_prompts(ctx->vocab, ctx->mctx, prompt, true, true);
     for (const auto & tokens : tokenized_prompts) {
         // this check is necessary for models that do not add BOS token to the input
         if (tokens.empty()) {
@@ -352,8 +342,8 @@ void Scheduler::handle_embeddings_impl(const Request & req, Response & res, oaic
     int embd_normalize = 2; // default to Euclidean/L2 norm
     if (body.count("embd_normalize") != 0) {
         embd_normalize = body.at("embd_normalize");
-        if (llama_pooling_type(ctx_server.ctx) == LLAMA_POOLING_TYPE_NONE) {
-            SRV_DBG("embd_normalize is not supported by pooling type %d, ignoring it\n", llama_pooling_type(ctx_server.ctx));
+        if (llama_pooling_type(ctx->ctx) == LLAMA_POOLING_TYPE_NONE) {
+            SRV_DBG("embd_normalize is not supported by pooling type %d, ignoring it\n", llama_pooling_type(ctx->ctx));
         }
     }
 
@@ -366,7 +356,7 @@ void Scheduler::handle_embeddings_impl(const Request & req, Response & res, oaic
         for (size_t i = 0; i < tokenized_prompts.size(); i++) {
             server_task task = server_task(SERVER_TASK_TYPE_EMBEDDING);
 
-            task.id     = ctx_server.queue_tasks.get_new_id();
+            task.id     = ctx->queue_tasks.get_new_id();
             task.index  = i;
             task.tokens = std::move(tokenized_prompts[i]);
 
@@ -378,12 +368,12 @@ void Scheduler::handle_embeddings_impl(const Request & req, Response & res, oaic
         }
 
         task_ids = server_task::get_list_id(tasks);
-        ctx_server.queue_results.add_waiting_tasks(tasks);
-        ctx_server.queue_tasks.post(std::move(tasks));
+        ctx->queue_results.add_waiting_tasks(tasks);
+        ctx->queue_tasks.post(std::move(tasks));
     }
 
     // get the result
-    ctx_server.receive_multi_results(task_ids, [&](std::vector<server_task_result_ptr> & results) {
+    ctx->receive_multi_results(task_ids, [&](std::vector<server_task_result_ptr> & results) {
         for (auto & res : results) {
             GGML_ASSERT(dynamic_cast<server_task_result_embd*>(res.get()) != nullptr);
             responses.push_back(res->to_json());
@@ -393,7 +383,7 @@ void Scheduler::handle_embeddings_impl(const Request & req, Response & res, oaic
         error = true;
     }, req.is_connection_closed);
 
-    ctx_server.queue_results.remove_waiting_task_ids(task_ids);
+    ctx->queue_results.remove_waiting_task_ids(task_ids);
 
     if (error) {
         return;
@@ -426,39 +416,43 @@ void Scheduler::res_ok(Response & res, const json & data) {
 };
 
 std::string Scheduler::get_props() {
+    auto * ctx = get_default_ctx();
+    if (!ctx) {
+        return safe_json_to_str(json{{"error", format_error_response("default model not initialized", ERROR_TYPE_INVALID_REQUEST)}});
+    }
     json default_generation_settings_for_props;
 
     {
         slot_params params;
 
-        params.sampling = ctx_server.params_base.sampling;
+        params.sampling = ctx->params_base.sampling;
 
         default_generation_settings_for_props = json {
                 {"params", params.to_json(true)},
-                {"n_ctx",  ctx_server.slots[0].n_ctx},
+                {"n_ctx",  ctx->slots[0].n_ctx},
         };
     }
 
     // this endpoint is publicly available, please only return what is safe to be exposed
     json data = {
             { "default_generation_settings", default_generation_settings_for_props },
-            { "total_slots",                 ctx_server.params_base.n_parallel },
-            { "model_path",                  ctx_server.params_base.model.path },
+            { "total_slots",                 ctx->params_base.n_parallel },
+            { "model_path",                  ctx->params_base.model.path },
             { "modalities",                  json {
-                    {"vision", ctx_server.oai_parser_opt.allow_image},
-                    {"audio",  ctx_server.oai_parser_opt.allow_audio},
+                    {"vision", ctx->oai_parser_opt.allow_image},
+                    {"audio",  ctx->oai_parser_opt.allow_audio},
             } },
-            { "endpoint_slots",              ctx_server.params_base.endpoint_slots },
-            { "endpoint_props",              ctx_server.params_base.endpoint_props },
-            { "endpoint_metrics",            ctx_server.params_base.endpoint_metrics },
-            { "webui",                       ctx_server.params_base.webui },
-            { "chat_template",               common_chat_templates_source(ctx_server.chat_templates.get()) },
-            { "bos_token",                   common_token_to_piece(ctx_server.ctx, llama_vocab_bos(ctx_server.vocab), /* special= */ true)},
-            { "eos_token",                   common_token_to_piece(ctx_server.ctx, llama_vocab_eos(ctx_server.vocab), /* special= */ true)},
+            { "endpoint_slots",              ctx->params_base.endpoint_slots },
+            { "endpoint_props",              ctx->params_base.endpoint_props },
+            { "endpoint_metrics",            ctx->params_base.endpoint_metrics },
+            { "webui",                       ctx->params_base.webui },
+            { "chat_template",               common_chat_templates_source(ctx->chat_templates.get()) },
+            { "bos_token",                   common_token_to_piece(ctx->ctx, llama_vocab_bos(ctx->vocab), /* special= */ true)},
+            { "eos_token",                   common_token_to_piece(ctx->ctx, llama_vocab_eos(ctx->vocab), /* special= */ true)},
             { "build_info",                  build_info },
     };
-    if (ctx_server.params_base.use_jinja) {
-        if (auto tool_use_src = common_chat_templates_source(ctx_server.chat_templates.get(), "tool_use")) {
+    if (ctx->params_base.use_jinja) {
+        if (auto tool_use_src = common_chat_templates_source(ctx->chat_templates.get(), "tool_use")) {
             data["chat_template_tool_use"] = tool_use_src;
         }
     }
@@ -466,22 +460,27 @@ std::string Scheduler::get_props() {
 }
 
 std::string Scheduler::get_slots(bool fail_on_no_slot) {
-    if (!ctx_server.params_base.endpoint_slots) {
+    auto * ctx = get_default_ctx();
+    if (!ctx) {
+        return safe_json_to_str(json{{"error", format_error_response("default model not initialized", ERROR_TYPE_INVALID_REQUEST)}});
+    }
+
+    if (!ctx->params_base.endpoint_slots) {
         return safe_json_to_str(format_error_response("This server does not support slots endpoint. Start it with `--slots`", ERROR_TYPE_NOT_SUPPORTED));
     }
 
     // request slots data using task queue
-    int task_id = ctx_server.queue_tasks.get_new_id();
+    int task_id = ctx->queue_tasks.get_new_id();
     {
         server_task task(SERVER_TASK_TYPE_METRICS);
         task.id = task_id;
-        ctx_server.queue_results.add_waiting_task_id(task_id);
-        ctx_server.queue_tasks.post(std::move(task), true); // high-priority task
+        ctx->queue_results.add_waiting_task_id(task_id);
+        ctx->queue_tasks.post(std::move(task), true); // high-priority task
     }
 
     // get the result
-    server_task_result_ptr result = ctx_server.queue_results.recv(task_id);
-    ctx_server.queue_results.remove_waiting_task_id(task_id);
+    server_task_result_ptr result = ctx->queue_results.recv(task_id);
+    ctx->queue_results.remove_waiting_task_id(task_id);
 
     if (result->is_error()) {
         json final_response {{"error", safe_json_to_str(result->to_json())}};
@@ -501,4 +500,137 @@ std::string Scheduler::get_slots(bool fail_on_no_slot) {
     }
 
     return safe_json_to_str(res_task->slots_data);
+}
+
+server_context * Scheduler::get_default_ctx() {
+    std::lock_guard<std::mutex> lk(ctx_mu);
+    if (!default_model_key.empty()) {
+        auto it = ctx_servers.find(default_model_key);
+        if (it != ctx_servers.end()) {
+            return &it->second->ctx;
+        }
+    }
+    if (!ctx_servers.empty()) {
+        return &ctx_servers.begin()->second->ctx;
+    }
+    return nullptr;
+}
+
+server_context * Scheduler::get_or_create_ctx(const std::string & model_key) {
+    const std::string key = model_key.empty() ? default_model_key : model_key;
+    if (key.empty()) {
+        return nullptr;
+    }
+
+    {
+        std::lock_guard<std::mutex> lk(ctx_mu);
+        auto it = ctx_servers.find(key);
+        if (it != ctx_servers.end()) {
+            return &it->second->ctx;
+        }
+    }
+
+    // slow-path: create
+    if (!init_server_context_for_model(key)) {
+        return nullptr;
+    }
+
+    std::lock_guard<std::mutex> lk(ctx_mu);
+    auto it = ctx_servers.find(key);
+    if (it == ctx_servers.end()) {
+        return nullptr;
+    }
+    return &it->second->ctx;
+}
+
+bool Scheduler::init_server_context_for_model(const std::string & model_key) {
+    // 解析 base_args 获取通用参数，并覆盖 model.path
+    std::vector<std::string> args = base_args;
+
+    std::vector<char*> v_argv;
+    v_argv.reserve(args.size());
+    for (auto & t : args) {
+        v_argv.push_back(const_cast<char*>(t.c_str()));
+    }
+    int argc = (int) v_argv.size();
+
+    common_params params;
+    if (!common_params_parse(argc, v_argv.data(), params, LLAMA_EXAMPLE_SERVER)) {
+        return false;
+    }
+
+    params.model.path = model_key;
+    if (params.model_alias.empty() && !params.model.path.empty()) {
+        std::filesystem::path fp(params.model.path);
+        params.model_alias = fp.stem().string();
+    }
+
+    // double-check + allocate entry
+    std::unique_ptr<CtxEntry> entry(new CtxEntry());
+    server_context * ctx = &entry->ctx;
+
+    {
+        std::lock_guard<std::mutex> lk(ctx_mu);
+        if (ctx_servers.find(model_key) != ctx_servers.end()) {
+            return true;
+        }
+        if (ctx_servers.empty()) {
+            llama_numa_init(params.numa);
+        }
+    }
+
+    LOG_INF("system info: n_threads = %d, n_threads_batch = %d, total_threads = %d\n", params.cpuparams.n_threads, params.cpuparams_batch.n_threads, std::thread::hardware_concurrency());
+    LOG_INF("\n");
+    LOG_INF("%s\n", common_params_get_system_info(params).c_str());
+    LOG_INF("\n");
+
+    // Necessary similarity of prompt for slot selection
+    ctx->slot_prompt_similarity = params.slot_prompt_similarity;
+
+    //
+    // Start the server
+    //
+    if (params.n_threads_http < 1) {
+        // +2 threads for monitoring endpoints
+        params.n_threads_http = std::max(params.n_parallel + 2, (int32_t) std::thread::hardware_concurrency() - 1);
+    }
+
+    // load the model
+    LOG_INF("%s: loading model: %s\n", __func__, params.model.path.c_str());
+
+    if (!ctx->load_model(params)) {
+        LOG_ERR("%s: exiting due to model loading error\n", __func__);
+        return false;
+    }
+
+    ctx->init();
+
+    LOG_INF("%s: model loaded\n", __func__);
+
+    // print sample chat example to make it clear which template is used
+    LOG_INF("%s: chat template, chat_template: %s, example_format: '%s'\n", __func__,
+            common_chat_templates_source(ctx->chat_templates.get()),
+            common_chat_format_example(ctx->chat_templates.get(), ctx->params_base.use_jinja, ctx->params_base.default_template_kwargs).c_str());
+
+    ctx->queue_tasks.on_new_task([ctx](server_task && task) {
+        ctx->process_single_task(std::move(task));
+    });
+
+    ctx->queue_tasks.on_update_slots([ctx]() {
+        ctx->update_slots();
+    });
+
+    entry->thread = std::thread([ctx]() {
+        ctx->queue_tasks.start_loop();
+    });
+
+    {
+        std::lock_guard<std::mutex> lk(ctx_mu);
+        ctx_servers[model_key] = std::move(entry);
+        if (default_model_key.empty()) {
+            default_model_key = model_key;
+        }
+    }
+    running = true;
+    return true;
 }

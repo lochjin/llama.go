@@ -1,5 +1,11 @@
 #pragma once
 
+#include <map>
+#include <memory>
+#include <mutex>
+#include <thread>
+#include <vector>
+
 #include "server_context.h"
 #include "singleton.h"
 
@@ -22,12 +28,23 @@ class Scheduler : public patterns::Singleton<Scheduler> {
     friend class patterns::Singleton<Scheduler>;
 
 private:
-    std::map<std::string,server_context*> ctx_servers;
-    server_context ctx_server;
+    struct CtxEntry {
+        server_context ctx;
+        std::thread    thread;
+    };
+
+    // model_key -> context/worker-thread
+    std::map<std::string, std::unique_ptr<CtxEntry>> ctx_servers;
+    std::mutex ctx_mu;
+    std::vector<std::string> base_args;
+    std::string default_model_key;
     bool running= false;
-    std::thread tasks_thread;
     Scheduler();
     ~Scheduler();
+
+    server_context * get_or_create_ctx(const std::string & model_key);
+    server_context * get_default_ctx();
+    bool init_server_context_for_model(const std::string & model_key);
 
 public:
     bool start(const std::vector<std::string>& args);

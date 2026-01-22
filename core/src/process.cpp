@@ -107,7 +107,11 @@ CommonParams get_common_params() {
     if (!Scheduler::instance().is_running()) {
         return {false};
     }
-    return {Scheduler::instance().get_common_params()->endpoint_props};
+    auto * p = Scheduler::instance().get_common_params();
+    if (!p) {
+        return {false};
+    }
+    return {p->endpoint_props};
 }
 
 Result get_props() {
