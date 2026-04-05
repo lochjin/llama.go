@@ -24,6 +24,10 @@ struct server_http_res {
         return next != nullptr;
     }
 
+    bool is_success() const {
+        return status == 200;
+    }
+
     virtual ~server_http_res() = default;
 };
 
@@ -32,11 +36,15 @@ struct server_http_res {
 using server_http_res_ptr = std::unique_ptr<server_http_res>;
 
 struct server_http_req {
-    std::map<std::string, std::string> params; // path_params + query_params
-    std::map<std::string, std::string> headers; // reserved for future use
-    std::string path; // reserved for future use
-    std::string body;
-    const std::function<bool()> & should_stop;
+    int id{};
+    std::string body{};
+    const std::function<void(int)> complete{};
+    const std::function<bool(int,const std::string&)> write{};
+    const std::function<bool()> should_stop=[] { return false; };
+
+    std::map<std::string, std::string> params{}; // path_params + query_params
+    std::map<std::string, std::string> headers{}; // reserved for future use
+    std::string path{}; // reserved for future use
 
     std::string get_param(const std::string & key, const std::string & def = "") const {
         auto it = params.find(key);

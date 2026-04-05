@@ -55,7 +55,7 @@ add_library(${TARGET} STATIC ${SRCS})
 target_link_libraries(${TARGET} PRIVATE common llama mtmd)
 
 # test
-option(BUILD_TEST "Build the testing tree." OFF)
+option(BUILD_TEST "Build the testing tree." ON)
 
 if(BUILD_TEST)
     include(CTest)

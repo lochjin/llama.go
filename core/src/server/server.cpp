@@ -155,19 +155,31 @@ bool Server::stop() {
     return true;
 }
 
-void Server::process() {
-    auto handler = ex_wrapper(routes->get_health);
+bool Server::is_running() {
+    return routes != nullptr;
+}
 
-    std::function<bool()> stop_func = [] { return false; };
-    std::unique_ptr<server_http_req> request = std::make_unique<server_http_req>(server_http_req{
-            {},
-            {},
-            "",
-            "",
-            stop_func
-    });
+server_http_res_ptr Server::process(const handler_t& func,const server_http_req& req) {
+    auto handler = ex_wrapper(func);
+
+    std::unique_ptr<server_http_req> request = std::make_unique<server_http_req>(req);
     server_http_res_ptr response = handler(*request);
 
     LOG_INF("%s: Server().process, %s\n", __func__,response->data.c_str());
 
+    return response;
+}
+
+bool Server::get_health() {
+    server_http_req shr{};
+    server_http_res_ptr response = process(routes->get_health,shr);
+    return response->status == 200;
+}
+
+server_http_res_ptr Server::post_completions(const server_http_req &req) {
+    return process(routes->post_completions_oai,req);
+}
+
+server_http_res_ptr Server::post_chat_completions(const server_http_req &req) {
+   return process(routes->post_chat_completions,req);
 }
