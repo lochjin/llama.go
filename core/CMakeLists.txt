@@ -28,6 +28,7 @@ add_subdirectory(llama.cpp ${CMAKE_BINARY_DIR}/llama)
 
 # core
 set(SRCS
+    src/process_go_bridge_stub.cpp
     src/interactive.cpp
     src/process.cpp
     src/runner.cpp

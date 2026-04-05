@@ -13,6 +13,30 @@
 
 #include "server-http.h"
 
+#include <string>
+
+void Server::flush_http_response_to_sink(const server_http_req & rq, server_http_res & res) {
+    if (!rq.write) {
+        return;
+    }
+    const int id = rq.id;
+    if (res.is_stream()) {
+        std::string chunk;
+        while (res.next) {
+            const bool more = res.next(chunk);
+            if (!chunk.empty() && !rq.write(id, chunk)) {
+                break;
+            }
+            chunk.clear();
+            if (!more) {
+                break;
+            }
+        }
+    } else if (!res.data.empty()) {
+        rq.write(id, res.data);
+    }
+}
+
 // wrapper function that handles exceptions and logs errors
 // this is to make sure handler_t never throws exceptions; instead, it returns an error response
 static handler_t ex_wrapper(handler_t func) {
@@ -137,7 +161,7 @@ bool Server::start(const std::vector<std::string>& args) {
 
 
     LOG_INF("%s: starting the main loop...\n", __func__);
-
+    running= true;
     // this call blocks the main thread until queue_tasks.terminate() is called
     ctx_server.start_loop();
 
@@ -152,11 +176,12 @@ bool Server::start(const std::vector<std::string>& args) {
 
 bool Server::stop() {
     ctx_server.terminate();
+    running= false;
     return true;
 }
 
-bool Server::is_running() {
-    return routes != nullptr;
+bool Server::is_running() const {
+    return running;
 }
 
 server_http_res_ptr Server::process(const handler_t& func,const server_http_req& req) {

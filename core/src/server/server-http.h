@@ -38,7 +38,6 @@ using server_http_res_ptr = std::unique_ptr<server_http_res>;
 struct server_http_req {
     int id{};
     std::string body{};
-    const std::function<void(int)> complete{};
     const std::function<bool(int,const std::string&)> write{};
     const std::function<bool()> should_stop=[] { return false; };
 

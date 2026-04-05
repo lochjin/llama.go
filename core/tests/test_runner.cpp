@@ -5,7 +5,7 @@
 #include <future>
 
 #include "process.h"
-#include "./../server/server.h"
+#include "./../src/server/server.h"
 
 int main() {
     const char* env_model = "LLAMA_TEST_MODEL";
@@ -27,9 +27,11 @@ int main() {
             std::cout<<"Start Fail:"<<ret<<std::endl;
         }
     });
-    int seconds = 2;
-    std::cout << "sleep...:"<<seconds<<" seconds" << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(seconds));
+    while (!Server::instance().is_running()) {
+        int seconds = 5;
+        std::cout << "sleep...:"<<seconds<<" seconds" << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(seconds));
+    }
 
     bool ret =Server::instance().get_health();
     std::cout << "ret:"<<ret<< std::endl;

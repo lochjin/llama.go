@@ -1,8 +1,8 @@
 package runner
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/Qitmeer/llama.go/config"
 	"github.com/Qitmeer/llama.go/wrapper"
@@ -55,9 +55,31 @@ func (s *Service) IsRunning() bool {
 }
 
 func (s *Service) Generate(id int, model string, prompt string, stream bool) error {
-	return wrapper.LlamaGenerate(id, model, fmt.Sprintf("{\"prompt\":\"%s\",\"stream\":%v}", prompt, stream))
+	type body struct {
+		Model  string `json:"model,omitempty"`
+		Prompt string `json:"prompt"`
+		Stream bool   `json:"stream"`
+	}
+	b, err := json.Marshal(body{Model: model, Prompt: prompt, Stream: stream})
+	if err != nil {
+		return err
+	}
+	return wrapper.LlamaGenerate(id, string(b))
 }
 
 func (s *Service) Chat(id int, model string, jsStr string) error {
-	return wrapper.LlamaChat(id, model, jsStr)
+	payload := jsStr
+	if model != "" {
+		var obj map[string]interface{}
+		if err := json.Unmarshal([]byte(jsStr), &obj); err != nil {
+			return err
+		}
+		obj["model"] = model
+		b, err := json.Marshal(obj)
+		if err != nil {
+			return err
+		}
+		payload = string(b)
+	}
+	return wrapper.LlamaChat(id, payload)
 }
