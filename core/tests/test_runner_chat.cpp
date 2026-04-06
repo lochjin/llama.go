@@ -47,7 +47,7 @@ int main() {
     }
 
     // OpenAI-style /v1/chat/completions (see oaicompat_chat_params_parse: messages required)
-    const char * body = R"({"messages":[{"role":"user","content":"Say OK in one word."}],"max_tokens":8,"temperature":0,"stream":false})";
+    const char * body = R"({"messages":[{"role":"user","content":"Say OK in one word."}],"max_tokens":8000,"temperature":0,"stream":true})";
 
     const int req_id = 1;
     Result r = llama_chat(req_id, body);

@@ -193,25 +193,29 @@ func GetCommonParams() CommonParams {
 	return CommonParams{EndpointProps: bool(ret.endpoint_props)}
 }
 
-func GetProps() (string, error) {
-	ret := C.get_props()
-	if !bool(ret.ret) {
-		return "", fmt.Errorf("Llama run error")
-	}
-
-	content := C.GoString(ret.content)
-	C.free(unsafe.Pointer(ret.content))
-	return content, nil
+// IsLlamaRunning reports whether the llama_core inference loop is active (model loaded and serving).
+func IsLlamaRunning() bool {
+	return bool(C.llama_is_running())
 }
-func GetSlots() (string, error) {
-	ret := C.get_slots()
-	if !bool(ret.ret) {
-		return "", fmt.Errorf("Llama run error")
-	}
 
-	content := C.GoString(ret.content)
-	C.free(unsafe.Pointer(ret.content))
-	return content, nil
+// LlamaPropsHTTP returns HTTP status and JSON body from llama_core /props.
+func LlamaPropsHTTP() (status int, body string) {
+	r := C.llama_props_http()
+	if r.body != nil {
+		body = C.GoString(r.body)
+		C.free(unsafe.Pointer(r.body))
+	}
+	return int(r.status), body
+}
+
+// LlamaSlotsHTTP returns HTTP status and JSON body from llama_core /slots.
+func LlamaSlotsHTTP() (status int, body string) {
+	r := C.llama_slots_http()
+	if r.body != nil {
+		body = C.GoString(r.body)
+		C.free(unsafe.Pointer(r.body))
+	}
+	return int(r.status), body
 }
 
 func assemblyArgs(cfg *config.Config) string {

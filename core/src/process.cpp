@@ -3,6 +3,8 @@
 #include "whisper_service.h"
 #include "server/server.h"
 
+#include <cstdlib>
+#include <cstring>
 #include <sstream>
 #include <string>
 
@@ -57,7 +59,6 @@ Result llama_gen(int id, const char * js_str) {
     };
 
     server_http_res_ptr rp = Server::instance().post_completions(rq);
-    Server::flush_http_response_to_sink(rq, *rp);
     const bool ok = rp->is_success();
 
     CloseChan(id);
@@ -82,7 +83,6 @@ Result llama_chat(int id, const char * js_str) {
     };
 
     server_http_res_ptr rp = Server::instance().post_chat_completions(rq);
-    Server::flush_http_response_to_sink(rq, *rp);
     const bool ok = rp->is_success();
 
     CloseChan(id);
@@ -95,14 +95,50 @@ Result whisper_gen(const char * model,const char * input) {
     return {true, nullptr};
 }
 
-CommonParams get_common_params() {
-    return {};
+static LlamaHTTPBody make_http_body(const server_http_res_ptr &rp) {
+    LlamaHTTPBody out{};
+    if (!rp) {
+        out.status = 500;
+        return out;
+    }
+    out.status = rp->status;
+    if (!rp->data.empty()) {
+        out.body = strdup(rp->data.c_str());
+    }
+    return out;
 }
 
-Result get_props() {
-    return {true, nullptr};
+extern "C" {
+
+bool llama_is_running(void) {
+    return Server::instance().is_running();
 }
 
-Result get_slots() {
-    return {true, nullptr};
+CommonParams get_common_params(void) {
+    if (!Server::instance().is_running()) {
+        return {false};
+    }
+    return {Server::instance().endpoint_props()};
+}
+
+LlamaHTTPBody llama_props_http(void) {
+    LlamaHTTPBody out{};
+    out.status = 503;
+    if (!Server::instance().is_running()) {
+        return out;
+    }
+    server_http_req req{};
+    return make_http_body(Server::instance().get_props(req));
+}
+
+LlamaHTTPBody llama_slots_http(void) {
+    LlamaHTTPBody out{};
+    out.status = 503;
+    if (!Server::instance().is_running()) {
+        return out;
+    }
+    server_http_req req{};
+    return make_http_body(Server::instance().get_slots(req));
+}
+
 }

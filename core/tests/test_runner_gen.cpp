@@ -47,7 +47,7 @@ int main() {
     }
 
     // OpenAI-style /v1/completions body (see oaicompat_completion_params_parse)
-    const char * body = R"({"prompt":"Say OK in one word.","max_tokens":8,"temperature":0,"stream":false})";
+    const char * body = R"({"prompt":"Say OK in one word.","max_tokens":80,"temperature":0,"stream":true})";
 
     const int req_id = 1;
     Result r = llama_gen(req_id, body);

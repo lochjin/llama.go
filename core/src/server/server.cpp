@@ -194,6 +194,8 @@ server_http_res_ptr Server::process(const handler_t& func,const server_http_req&
     std::unique_ptr<server_http_req> request = std::make_unique<server_http_req>(req);
     server_http_res_ptr response = handler(*request);
 
+    flush_http_response_to_sink(req, *response);
+
     LOG_INF("%s: Server().process, %s\n", __func__,response->data.c_str());
 
     return response;
@@ -211,4 +213,19 @@ server_http_res_ptr Server::post_completions(const server_http_req &req) {
 
 server_http_res_ptr Server::post_chat_completions(const server_http_req &req) {
    return process(routes->post_chat_completions,req);
+}
+
+server_http_res_ptr Server::get_props(const server_http_req &req) {
+    return process(routes->get_props, req);
+}
+
+server_http_res_ptr Server::get_slots(const server_http_req &req) {
+    return process(routes->get_slots, req);
+}
+
+bool Server::endpoint_props() const {
+    if (!routes) {
+        return false;
+    }
+    return routes->endpoint_props_enabled();
 }

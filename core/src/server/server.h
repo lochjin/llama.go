@@ -28,7 +28,10 @@ public:
     bool get_health();
     server_http_res_ptr post_completions(const server_http_req& req);
     server_http_res_ptr post_chat_completions(const server_http_req& req);
+    server_http_res_ptr get_props(const server_http_req& req);
+    server_http_res_ptr get_slots(const server_http_req& req);
     bool is_running() const;
+    bool endpoint_props() const;
 
     /** Drain a completions HTTP response into req.write (e.g. CGO channel); uses req.id. */
     static void flush_http_response_to_sink(const server_http_req & rq, server_http_res & res);

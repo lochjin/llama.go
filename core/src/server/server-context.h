@@ -111,6 +111,9 @@ struct server_routes {
     handler_t post_rerank;
     handler_t get_lora_adapters;
     handler_t post_lora_adapters;
+
+    bool endpoint_props_enabled() const { return params.endpoint_props; }
+
 private:
     std::unique_ptr<server_res_generator> handle_completions_impl(
             const server_http_req & req,
