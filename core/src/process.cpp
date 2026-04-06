@@ -65,9 +65,28 @@ Result llama_gen(int id, const char * js_str) {
 }
 
 Result llama_chat(int id, const char * js_str) {
-    (void)id;
-    (void)js_str;
-    return {true, nullptr};
+    if (!Server::instance().is_running()) {
+        return {false, nullptr};
+    }
+    if (!js_str) {
+        return {false, nullptr};
+    }
+
+    server_http_req rq{
+            id,
+            std::string(js_str),
+            [](int cid, const std::string & content) {
+                PushToChan(cid, content.c_str());
+                return true;
+            }
+    };
+
+    server_http_res_ptr rp = Server::instance().post_chat_completions(rq);
+    Server::flush_http_response_to_sink(rq, *rp);
+    const bool ok = rp->is_success();
+
+    CloseChan(id);
+    return {ok, nullptr};
 }
 
 Result whisper_gen(const char * model,const char * input) {

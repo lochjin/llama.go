@@ -143,6 +143,9 @@ bool Server::start(const std::vector<std::string>& args) {
     clean_up = [&]() {
         SRV_INF("%s: cleaning up before exit...\n", __func__);
         ctx_server.terminate();
+        // llama_backend_free() only clears quant tables; Metal devices are global until exit.
+        // Must free all GGML/Metal buffers first or ggml_metal_rsets_free asserts (macOS 15+).
+        ctx_server.unload_for_process_exit();
         llama_backend_free();
     };
 
@@ -150,8 +153,8 @@ bool Server::start(const std::vector<std::string>& args) {
     LOG_INF("%s: loading model\n", __func__);
 
     if (!ctx_server.load_model(params)) {
-        clean_up();
         LOG_ERR("%s: exiting due to model loading error\n", __func__);
+        clean_up();
         return false;
     }
 
@@ -165,12 +168,13 @@ bool Server::start(const std::vector<std::string>& args) {
     // this call blocks the main thread until queue_tasks.terminate() is called
     ctx_server.start_loop();
 
-    clean_up();
-
     auto * ll_ctx = ctx_server.get_llama_context();
     if (ll_ctx != nullptr) {
         llama_memory_breakdown_print(ll_ctx);
     }
+
+    clean_up();
+
     return true;
 }
 

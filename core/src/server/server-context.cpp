@@ -599,6 +599,14 @@ private:
         llama_batch_free(batch);
     }
 
+    void unload_for_process_exit() {
+        if (sleeping) {
+            return;
+        }
+        destroy();
+        sleeping = true;
+    }
+
     void handle_sleeping_state(bool new_state) {
         GGML_ASSERT(sleeping != new_state);
         if (new_state) {
@@ -827,6 +835,8 @@ private:
             return init();
         }
 
+        // After unload_for_process_exit(), sleeping is true; next load_model needs this cleared.
+        sleeping = false;
         return true;
     }
 
@@ -2869,6 +2879,10 @@ void server_context::start_loop() {
 
 void server_context::terminate() {
     impl->queue_tasks.terminate();
+}
+
+void server_context::unload_for_process_exit() {
+    impl->unload_for_process_exit();
 }
 
 llama_context * server_context::get_llama_context() const {

@@ -1,22 +1,63 @@
-#include <iostream>
-#include <thread>
 #include <chrono>
 #include <cstdlib>
 #include <future>
-#include <vector>
+#include <iostream>
+#include <sstream>
+#include <thread>
+
+#include "process.h"
+#include "./../src/server/server.h"
+
+namespace {
+
+constexpr int kReadyPollMs = 500;
+constexpr int kReadyMaxPolls = 600; // up to ~5 minutes for large models
+
+} // namespace
 
 int main() {
-    std::string model("/Users/jin/temp/ggufs/DeepSeek-8B-q8_0.gguf");
+    const char * env_model = "LLAMA_TEST_MODEL";
+    const char * model = std::getenv(env_model);
 
-    std::vector<std::string> v_args;
-    v_args.push_back("test_runner_gen");
-    v_args.push_back("-m");
-    v_args.push_back(model);
-    v_args.push_back("--seed");
-    v_args.push_back("0");
+    if (model == nullptr) {
+        std::cerr << "error: set " << env_model << " to a .gguf path\n";
+        return EXIT_FAILURE;
+    }
 
+    std::cout << "env: " << env_model << "=" << model << std::endl;
 
+    std::stringstream ss;
+    ss << "test_runner_gen -m " << model << " --seed 0";
 
-    std::cout<<"stop:"<<std::endl;
+    std::future<void> start = std::async(std::launch::async, [&]() {
+        if (!llama_start(ss.str().c_str())) {
+            std::cerr << "llama_start failed\n";
+        }
+    });
+
+    for (int i = 0; i < kReadyMaxPolls && !Server::instance().is_running(); ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(kReadyPollMs));
+    }
+
+    if (!Server::instance().is_running()) {
+        std::cerr << "error: server did not become ready (timeout)\n";
+        (void)llama_stop();
+        start.wait();
+        return EXIT_FAILURE;
+    }
+
+    // OpenAI-style /v1/completions body (see oaicompat_completion_params_parse)
+    const char * body = R"({"prompt":"Say OK in one word.","max_tokens":8,"temperature":0,"stream":false})";
+
+    const int req_id = 1;
+    Result r = llama_gen(req_id, body);
+    std::cout << "llama_gen ret=" << (r.ret ? "true" : "false") << std::endl;
+
+    const bool stopped = llama_stop();
+    start.wait();
+
+    if (!r.ret || !stopped) {
+        return EXIT_FAILURE;
+    }
     return EXIT_SUCCESS;
 }

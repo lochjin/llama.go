@@ -56,6 +56,10 @@ struct server_context {
     // terminate main loop (will unblock start_loop)
     void terminate();
 
+    // Release model/context/GGML (incl. Metal buffers) before process teardown. Required on
+    // macOS so ggml_metal rsets are empty when static Metal devices are destroyed.
+    void unload_for_process_exit();
+
     // get the underlaying llama_context, can return nullptr if sleeping
     // not thread-safe, should only be used from the main thread
     llama_context * get_llama_context() const;
