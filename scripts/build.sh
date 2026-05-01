@@ -21,6 +21,14 @@ buildDir=$(pwd)/build
 echo "core dir:" ${coreDir}
 echo "build dir:" ${buildDir}
 
+# open-ssl
+if [[ "$(uname -s)" == "Linux" ]]; then
+   if ! pkg-config --exists openssl 2>/dev/null; then
+     sudo apt-get update
+     sudo apt-get install -y pkg-config libssl-dev
+   fi
+fi
+
 # cuda
 cudaTag=""
 cudaCmake=""
@@ -89,6 +97,6 @@ cd ./cmd/llama
 go build $cudaTag -ldflags "-X ${versionBuild}" -o $buildDir/bin/llama
 
 echo "Output executable file:${buildDir}/bin/llama"
-$buildDir/bin/llama --version
+$buildDir/bin/llama version
 
 

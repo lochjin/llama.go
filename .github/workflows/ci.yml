@@ -17,10 +17,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version: "stable"
 
@@ -35,23 +35,17 @@ jobs:
         go mod tidy
         make
 
-    - uses: golangci/golangci-lint-action@v7
+    - uses: golangci/golangci-lint-action@v9
       with:
-        version: v2.0
         skip-cache: true
         args: --enable-only=govet --tests=false ./...
 
-    - name: Run tests (Ubuntu with coverage)
-      if: matrix.os == 'ubuntu-latest'
-      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
-
-    - name: Run tests (macOS and Windows)
-      if: matrix.os != 'ubuntu-latest'
-      run: go test -v ./...
+    - name: Run tests
+      run: make test
 
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest'
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v6
       with:
         file: ./coverage.txt
         fail_ci_if_error: false
