@@ -24,6 +24,7 @@ set(BUILD_SHARED_LIBS OFF)
 set(LLAMA_BUILD_COMMON ON)
 set(LLAMA_BUILD_TOOLS ON)
 set(LLAMA_CURL OFF)
+set(LLAMA_OPENSSL ON)
 add_subdirectory(llama.cpp ${CMAKE_BINARY_DIR}/llama)
 
 # whisper.cpp — reuse the ggml already built by llama.cpp
@@ -70,6 +71,7 @@ include_directories(${SERVER_ASSETS_DIR})
 # core
 set(SRCS
     ${GENERATED_ASSETS}
+    src/build_info.cpp
     src/process_go_bridge_stub.cpp
     src/interactive.cpp
     src/process.cpp
